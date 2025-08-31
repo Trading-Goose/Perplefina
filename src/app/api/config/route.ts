@@ -11,7 +11,6 @@ import {
   getAimlApiKey,
   getLMStudioApiEndpoint,
   updateConfig,
-  getOllamaApiKey,
 } from '@/lib/config';
 import {
   getAvailableChatModelProviders,
@@ -54,7 +53,6 @@ export const GET = async (req: Request) => {
 
     config['openaiApiKey'] = getOpenaiApiKey();
     config['ollamaApiUrl'] = getOllamaApiEndpoint();
-    config['ollamaApiKey'] = getOllamaApiKey();
     config['lmStudioApiUrl'] = getLMStudioApiEndpoint();
     config['anthropicApiKey'] = getAnthropicApiKey();
     config['groqApiKey'] = getGroqApiKey();
@@ -95,7 +93,6 @@ export const POST = async (req: Request) => {
         },
         OLLAMA: {
           API_URL: config.ollamaApiUrl,
-          API_KEY: config.ollamaApiKey,
         },
         DEEPSEEK: {
           API_KEY: config.deepseekApiKey,

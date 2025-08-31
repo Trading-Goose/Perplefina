@@ -13,7 +13,11 @@ const NewsArticleWidget = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetch('/api/discover?mode=preview')
+    // Randomly select a finance topic for variety
+    const financeTopics = ['markets', 'finance', 'crypto', 'economy', 'earnings'];
+    const randomTopic = financeTopics[Math.floor(Math.random() * financeTopics.length)];
+    
+    fetch(`/api/discover?mode=preview&topic=${randomTopic}`)
       .then((res) => res.json())
       .then((data) => {
         const articles = (data.blogs || []).filter((a: Article) => a.thumbnail);

@@ -1,32 +1,41 @@
 import {
-  academicSearchResponsePrompt,
-  academicSearchRetrieverPrompt,
-} from './academicSearch';
+  newsResponsePrompt,
+  newsRetrieverPrompt,
+} from './news';
 import {
-  redditSearchResponsePrompt,
-  redditSearchRetrieverPrompt,
-} from './redditSearch';
+  fundamentalsResponsePrompt,
+  fundamentalsRetrieverPrompt,
+} from './fundamentals';
+import {
+  socialResponsePrompt,
+  socialRetrieverPrompt,
+} from './social';
 import { webSearchResponsePrompt, webSearchRetrieverPrompt } from './webSearch';
-import {
-  wolframAlphaSearchResponsePrompt,
-  wolframAlphaSearchRetrieverPrompt,
-} from './wolframAlpha';
 import { writingAssistantPrompt } from './writingAssistant';
 import {
-  youtubeSearchResponsePrompt,
-  youtubeSearchRetrieverPrompt,
-} from './youtubeSearch';
+  macroEconomyResponsePrompt,
+  macroEconomyRetrieverPrompt,
+} from './macroEconomy';
 
 export default {
   webSearchResponsePrompt,
   webSearchRetrieverPrompt,
-  academicSearchResponsePrompt,
-  academicSearchRetrieverPrompt,
-  redditSearchResponsePrompt,
-  redditSearchRetrieverPrompt,
-  wolframAlphaSearchResponsePrompt,
-  wolframAlphaSearchRetrieverPrompt,
+  newsResponsePrompt,
+  newsRetrieverPrompt,
+  fundamentalsResponsePrompt,
+  fundamentalsRetrieverPrompt,
+  socialResponsePrompt,
+  socialRetrieverPrompt,
   writingAssistantPrompt,
-  youtubeSearchResponsePrompt,
-  youtubeSearchRetrieverPrompt,
+  macroEconomyResponsePrompt,
+  macroEconomyRetrieverPrompt,
+  // Keep these for backward compatibility but they will use finance-optimized prompts
+  academicSearchResponsePrompt: webSearchResponsePrompt,
+  academicSearchRetrieverPrompt: webSearchRetrieverPrompt,
+  redditSearchResponsePrompt: socialResponsePrompt,
+  redditSearchRetrieverPrompt: socialRetrieverPrompt,
+  wolframAlphaSearchResponsePrompt: webSearchResponsePrompt,
+  wolframAlphaSearchRetrieverPrompt: webSearchRetrieverPrompt,
+  youtubeSearchResponsePrompt: webSearchResponsePrompt,
+  youtubeSearchRetrieverPrompt: webSearchRetrieverPrompt,
 };

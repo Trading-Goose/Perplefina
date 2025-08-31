@@ -10,7 +10,6 @@ import {
   Transition,
 } from '@headlessui/react';
 import jsPDF from 'jspdf';
-import { useChat } from '@/lib/hooks/useChat';
 
 const downloadFile = (filename: string, content: string, type: string) => {
   const blob = new Blob([content], { type });
@@ -119,11 +118,15 @@ const exportAsPDF = (messages: Message[], title: string) => {
   doc.save(`${title || 'chat'}.pdf`);
 };
 
-const Navbar = () => {
+const Navbar = ({
+  chatId,
+  messages,
+}: {
+  messages: Message[];
+  chatId: string;
+}) => {
   const [title, setTitle] = useState<string>('');
   const [timeAgo, setTimeAgo] = useState<string>('');
-
-  const { messages, chatId } = useChat();
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -203,7 +206,7 @@ const Navbar = () => {
             </PopoverPanel>
           </Transition>
         </Popover>
-        <DeleteChat redirect chatId={chatId!} chats={[]} setChats={() => {}} />
+        <DeleteChat redirect chatId={chatId} chats={[]} setChats={() => {}} />
       </div>
     </div>
   );

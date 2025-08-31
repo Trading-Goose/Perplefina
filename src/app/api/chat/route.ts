@@ -10,13 +10,9 @@ import { chats, messages as messagesSchema } from '@/lib/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
 import { getFileDetails } from '@/lib/utils/files';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { ChatOpenAI } from '@langchain/openai';
-import {
-  getCustomOpenaiApiKey,
-  getCustomOpenaiApiUrl,
-  getCustomOpenaiModelName,
-} from '@/lib/config';
+import type { Embeddings } from '@langchain/core/embeddings';
 import { searchHandlers } from '@/lib/search';
+import { createCustomModel, validateCustomModel } from '@/lib/providers/customModels';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,12 +25,9 @@ type Message = {
 
 type ChatModel = {
   provider: string;
-  name: string;
-};
-
-type EmbeddingModel = {
-  provider: string;
-  name: string;
+  model: string;
+  apiKey?: string;
+  baseUrl?: string;
 };
 
 type Body = {
@@ -44,8 +37,11 @@ type Body = {
   history: Array<[string, string]>;
   files: Array<string>;
   chatModel: ChatModel;
-  embeddingModel: EmbeddingModel;
   systemInstructions: string;
+  maxSources?: number;
+  maxToken?: number;
+  includeImages?: boolean;
+  includeVideos?: boolean;
 };
 
 const handleEmitterEvents = async (
@@ -134,8 +130,6 @@ const handleHistorySave = async (
     where: eq(chats.id, message.chatId),
   });
 
-  const fileData = files.map(getFileDetails);
-
   if (!chat) {
     await db
       .insert(chats)
@@ -144,15 +138,9 @@ const handleHistorySave = async (
         title: message.content,
         createdAt: new Date().toString(),
         focusMode: focusMode,
-        files: fileData,
-      })
-      .execute();
-  } else if (JSON.stringify(chat.files ?? []) != JSON.stringify(fileData)) {
-    db.update(chats)
-      .set({
         files: files.map(getFileDetails),
       })
-      .where(eq(chats.id, message.chatId));
+      .execute();
   }
 
   const messageExists = await db.query.messages.findFirst({
@@ -199,54 +187,43 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const [chatModelProviders, embeddingModelProviders] = await Promise.all([
-      getAvailableChatModelProviders(),
-      getAvailableEmbeddingModelProviders(),
-    ]);
-
-    const chatModelProvider =
-      chatModelProviders[
-        body.chatModel?.provider || Object.keys(chatModelProviders)[0]
-      ];
-    const chatModel =
-      chatModelProvider[
-        body.chatModel?.name || Object.keys(chatModelProvider)[0]
-      ];
-
-    const embeddingProvider =
-      embeddingModelProviders[
-        body.embeddingModel?.provider || Object.keys(embeddingModelProviders)[0]
-      ];
-    const embeddingModel =
-      embeddingProvider[
-        body.embeddingModel?.name || Object.keys(embeddingProvider)[0]
-      ];
+    const chatModelProviders = await getAvailableChatModelProviders();
 
     let llm: BaseChatModel | undefined;
-    let embedding = embeddingModel.model;
 
-    if (body.chatModel?.provider === 'custom_openai') {
-      llm = new ChatOpenAI({
-        apiKey: getCustomOpenaiApiKey(),
-        modelName: getCustomOpenaiModelName(),
-        temperature: 0.7,
-        configuration: {
-          baseURL: getCustomOpenaiApiUrl(),
-        },
-      }) as unknown as BaseChatModel;
-    } else if (chatModelProvider && chatModel) {
-      llm = chatModel.model;
+    // Check if custom model configuration is provided
+    if (body.chatModel?.apiKey && body.chatModel?.model) {
+      const customConfig = {
+        provider: body.chatModel.provider,
+        model: body.chatModel.model,
+        apiKey: body.chatModel.apiKey,
+        baseUrl: body.chatModel.baseUrl,
+      };
+
+      const validation = validateCustomModel(customConfig);
+      if (!validation.isValid) {
+        return Response.json({ error: validation.error }, { status: 400 });
+      }
+
+      llm = createCustomModel(customConfig);
+    } else {
+      // Use default configured models
+      const chatModelProvider =
+        chatModelProviders[
+          body.chatModel?.provider || Object.keys(chatModelProviders)[0]
+        ];
+      const chatModel =
+        chatModelProvider?.[
+          body.chatModel?.model || Object.keys(chatModelProvider || {})[0]
+        ];
+      
+      if (chatModelProvider && chatModel) {
+        llm = chatModel.model;
+      }
     }
 
     if (!llm) {
-      return Response.json({ error: 'Invalid chat model' }, { status: 400 });
-    }
-
-    if (!embedding) {
-      return Response.json(
-        { error: 'Invalid embedding model' },
-        { status: 400 },
-      );
+      return Response.json({ error: 'Invalid chat model configuration' }, { status: 400 });
     }
 
     const humanMessageId =
@@ -276,14 +253,34 @@ export const POST = async (req: Request) => {
       );
     }
 
+    // Get system-configured embedding model for reranking
+    let embeddings: Embeddings | null = null;
+    if (body.optimizationMode === 'balanced') {
+      const embeddingProviders = await getAvailableEmbeddingModelProviders();
+      
+      // Try to get the first available embedding model from system configuration
+      for (const provider of Object.keys(embeddingProviders)) {
+        const models = embeddingProviders[provider];
+        if (models && Object.keys(models).length > 0) {
+          const firstModel = Object.keys(models)[0];
+          embeddings = models[firstModel].model;
+          break;
+        }
+      }
+    }
+
     const stream = await handler.searchAndAnswer(
       message.content,
       history,
       llm,
-      embedding,
+      embeddings,
       body.optimizationMode,
       body.files,
-      body.systemInstructions,
+      body.systemInstructions || '',
+      body.maxSources,
+      body.maxToken || 4000,
+      body.includeImages,
+      body.includeVideos,
     );
 
     const responseStream = new TransformStream();

@@ -1,17 +1,9 @@
-'use client';
-
 import ChatWindow from '@/components/ChatWindow';
-import { useParams } from 'next/navigation';
 import React from 'react';
-import { ChatProvider } from '@/lib/hooks/useChat';
 
-const Page = () => {
-  const { chatId }: { chatId: string } = useParams();
-  return (
-    <ChatProvider id={chatId}>
-      <ChatWindow />
-    </ChatProvider>
-  );
+const Page = ({ params }: { params: Promise<{ chatId: string }> }) => {
+  const { chatId } = React.use(params);
+  return <ChatWindow id={chatId} />;
 };
 
 export default Page;

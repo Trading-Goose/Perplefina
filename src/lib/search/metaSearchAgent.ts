@@ -30,10 +30,14 @@ export interface MetaSearchAgentType {
     message: string,
     history: BaseMessage[],
     llm: BaseChatModel,
-    embeddings: Embeddings,
+    embeddings: Embeddings | null,
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    maxSources?: number,
+    maxToken?: number,
+    includeImages?: boolean,
+    includeVideos?: boolean,
   ) => Promise<eventEmitter>;
 }
 
@@ -45,6 +49,7 @@ interface Config {
   queryGeneratorPrompt: string;
   responsePrompt: string;
   activeEngines: string[];
+  maxSources?: number;
 }
 
 type BasicChainInput = {
@@ -60,8 +65,13 @@ class MetaSearchAgent implements MetaSearchAgentType {
     this.config = config;
   }
 
-  private async createSearchRetrieverChain(llm: BaseChatModel) {
+
+  private async createSearchRetrieverChain(llm: BaseChatModel, optimizationMode: 'speed' | 'balanced' | 'quality' = 'balanced', includeImages?: boolean, includeVideos?: boolean, maxToken?: number) {
     (llm as unknown as ChatOpenAI).temperature = 0;
+    // Apply maxToken limit if provided
+    if (maxToken) {
+      (llm as any).maxTokens = maxToken;
+    }
 
     return RunnableSequence.from([
       PromptTemplate.fromTemplate(this.config.queryGeneratorPrompt),
@@ -205,26 +215,52 @@ class MetaSearchAgent implements MetaSearchAgentType {
         } else {
           question = question.replace(/<think>.*?<\/think>/g, '');
 
+          // Filter out YouTube and image searches for speed/balanced modes unless explicitly included
+          let filteredEngines = this.config.activeEngines;
+          if (optimizationMode === 'balanced' || optimizationMode === 'speed') {
+            filteredEngines = this.config.activeEngines.filter(engine => {
+              const engineLower = engine.toLowerCase();
+              // Filter out YouTube unless explicitly included (includeVideos === true)
+              if (includeVideos !== true && engineLower === 'youtube') {
+                return false;
+              }
+              // Filter out image searches unless explicitly included (includeImages === true)
+              if (includeImages !== true && ['google images', 'bing images', 'qwant images', 'unsplash'].includes(engineLower)) {
+                return false;
+              }
+              return true;
+            });
+          }
+
           const res = await searchSearxng(question, {
             language: 'en',
-            engines: this.config.activeEngines,
+            engines: filteredEngines,
           });
 
-          const documents = res.results.map(
-            (result) =>
-              new Document({
-                pageContent:
-                  result.content ||
-                  (this.config.activeEngines.includes('youtube')
-                    ? result.title
-                    : '') /* Todo: Implement transcript grabbing using Youtubei (source: https://www.npmjs.com/package/youtubei) */,
-                metadata: {
-                  title: result.title,
-                  url: result.url,
-                  ...(result.img_src && { img_src: result.img_src }),
-                },
-              }),
-          );
+          const documents = res.results
+            .filter((result) => {
+              // Filter out YouTube results in speed/balanced modes unless explicitly included
+              if ((optimizationMode === 'balanced' || optimizationMode === 'speed') && includeVideos !== true &&
+                  (result.url.includes('youtube.com') || result.url.includes('youtu.be'))) {
+                return false;
+              }
+              return true;
+            })
+            .map(
+              (result) =>
+                new Document({
+                  pageContent:
+                    result.content ||
+                    (filteredEngines.includes('youtube')
+                      ? result.title
+                      : '') /* Todo: Implement transcript grabbing using Youtubei (source: https://www.npmjs.com/package/youtubei) */,
+                  metadata: {
+                    title: result.title,
+                    url: result.url,
+                    ...(result.img_src && (optimizationMode === 'quality' || includeImages === true) && { img_src: result.img_src }),
+                  },
+                }),
+            );
 
           return { query: question, docs: documents };
         }
@@ -235,10 +271,18 @@ class MetaSearchAgent implements MetaSearchAgentType {
   private async createAnsweringChain(
     llm: BaseChatModel,
     fileIds: string[],
-    embeddings: Embeddings,
+    embeddings: Embeddings | null,
     optimizationMode: 'speed' | 'balanced' | 'quality',
     systemInstructions: string,
+    sourcesLimit: number,
+    maxToken?: number,
+    includeImages?: boolean,
+    includeVideos?: boolean,
   ) {
+    // Configure max tokens if provided
+    if (maxToken) {
+      (llm as any).maxTokens = maxToken;
+    }
     return RunnableSequence.from([
       RunnableMap.from({
         systemInstructions: () => systemInstructions,
@@ -255,7 +299,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           if (this.config.searchWeb) {
             const searchRetrieverChain =
-              await this.createSearchRetrieverChain(llm);
+              await this.createSearchRetrieverChain(llm, optimizationMode, includeImages, includeVideos, maxToken);
 
             const searchRetrieverResult = await searchRetrieverChain.invoke({
               chat_history: processedHistory,
@@ -272,6 +316,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
             fileIds,
             embeddings,
             optimizationMode,
+            sourcesLimit,
           );
 
           return sortedDocs;
@@ -297,8 +342,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
     query: string,
     docs: Document[],
     fileIds: string[],
-    embeddings: Embeddings,
+    embeddings: Embeddings | null,
     optimizationMode: 'speed' | 'balanced' | 'quality',
+    sourcesLimit: number,
   ) {
     if (docs.length === 0 && fileIds.length === 0) {
       return docs;
@@ -329,12 +375,17 @@ class MetaSearchAgent implements MetaSearchAgentType {
       .flat();
 
     if (query.toLocaleLowerCase() === 'summarize') {
-      return docs.slice(0, 15);
+      return docs.slice(0, sourcesLimit);
     }
 
     const docsWithContent = docs.filter(
       (doc) => doc.pageContent && doc.pageContent.length > 0,
     );
+
+    // If no embeddings provided, skip reranking and return docs as-is
+    if (!embeddings) {
+      return docsWithContent.slice(0, sourcesLimit);
+    }
 
     if (optimizationMode === 'speed' || this.config.rerank === false) {
       if (filesData.length > 0) {
@@ -366,7 +417,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
             (sim) => sim.similarity > (this.config.rerankThreshold ?? 0.3),
           )
           .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 15)
+          .slice(0, sourcesLimit)
           .map((sim) => fileDocs[sim.index]);
 
         sortedDocs =
@@ -374,19 +425,28 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
         return [
           ...sortedDocs,
-          ...docsWithContent.slice(0, 15 - sortedDocs.length),
+          ...docsWithContent.slice(0, sourcesLimit - sortedDocs.length),
         ];
       } else {
-        return docsWithContent.slice(0, 15);
+        return docsWithContent.slice(0, sourcesLimit);
       }
     } else if (optimizationMode === 'balanced') {
-      const [docEmbeddings, queryEmbedding] = await Promise.all([
-        embeddings.embedDocuments(
-          docsWithContent.map((doc) => doc.pageContent),
-        ),
-        embeddings.embedQuery(query),
-      ]);
+      // If there are no documents to rerank and no files, return empty array
+      if (docsWithContent.length === 0 && filesData.length === 0) {
+        return [];
+      }
 
+      // Only embed documents if there are any
+      let docEmbeddings: number[][] = [];
+      if (docsWithContent.length > 0) {
+        docEmbeddings = await embeddings.embedDocuments(
+          docsWithContent.map((doc) => doc.pageContent),
+        );
+      }
+
+      const queryEmbedding = await embeddings.embedQuery(query);
+
+      // Add file data to documents
       docsWithContent.push(
         ...filesData.map((fileData) => {
           return new Document({
@@ -401,6 +461,11 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
       docEmbeddings.push(...filesData.map((fileData) => fileData.embeddings));
 
+      // If still no documents after adding files, return empty
+      if (docEmbeddings.length === 0) {
+        return [];
+      }
+
       const similarity = docEmbeddings.map((docEmbedding, i) => {
         const sim = computeSimilarity(queryEmbedding, docEmbedding);
 
@@ -413,7 +478,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       const sortedDocs = similarity
         .filter((sim) => sim.similarity > (this.config.rerankThreshold ?? 0.3))
         .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 15)
+        .slice(0, this.config.maxSources || 15)
         .map((sim) => docsWithContent[sim.index]);
 
       return sortedDocs;
@@ -468,12 +533,19 @@ class MetaSearchAgent implements MetaSearchAgentType {
     message: string,
     history: BaseMessage[],
     llm: BaseChatModel,
-    embeddings: Embeddings,
+    embeddings: Embeddings | null,
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    maxSources?: number,
+    maxToken?: number,
+    includeImages?: boolean,
+    includeVideos?: boolean,
   ) {
     const emitter = new eventEmitter();
+
+    // Use provided maxSources or fall back to config default
+    const sourcesLimit = maxSources || this.config.maxSources || 15;
 
     const answeringChain = await this.createAnsweringChain(
       llm,
@@ -481,6 +553,10 @@ class MetaSearchAgent implements MetaSearchAgentType {
       embeddings,
       optimizationMode,
       systemInstructions,
+      sourcesLimit,
+      maxToken,
+      includeImages,
+      includeVideos,
     );
 
     const stream = answeringChain.streamEvents(

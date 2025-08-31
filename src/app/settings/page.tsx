@@ -21,7 +21,6 @@ interface SettingsType {
   anthropicApiKey: string;
   geminiApiKey: string;
   ollamaApiUrl: string;
-  ollamaApiKey: string;
   lmStudioApiUrl: string;
   deepseekApiKey: string;
   aimlApiKey: string;
@@ -816,25 +815,6 @@ const Page = () => {
                       }));
                     }}
                     onSave={(value) => saveConfig('ollamaApiUrl', value)}
-                  />
-                </div>
-
-                <div className="flex flex-col space-y-1">
-                  <p className="text-black/70 dark:text-white/70 text-sm">
-                    Ollama API Key (Can be left blank)
-                  </p>
-                  <Input
-                    type="text"
-                    placeholder="Ollama API Key"
-                    value={config.ollamaApiKey}
-                    isSaving={savingStates['ollamaApiKey']}
-                    onChange={(e) => {
-                      setConfig((prev) => ({
-                        ...prev!,
-                        ollamaApiKey: e.target.value,
-                      }));
-                    }}
-                    onSave={(value) => saveConfig('ollamaApiKey', value)}
                   />
                 </div>
 

@@ -1,15 +1,43 @@
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
+import CopilotToggle from './MessageInputActions/Copilot';
 import Focus from './MessageInputActions/Focus';
 import Optimization from './MessageInputActions/Optimization';
+import SourcesConfig from './MessageInputActions/SourcesConfig';
 import Attach from './MessageInputActions/Attach';
-import { useChat } from '@/lib/hooks/useChat';
+import { File } from './ChatWindow';
 
-const EmptyChatMessageInput = () => {
-  const { sendMessage } = useChat();
-
-  /* const [copilotEnabled, setCopilotEnabled] = useState(false); */
+const EmptyChatMessageInput = ({
+  sendMessage,
+  focusMode,
+  setFocusMode,
+  optimizationMode,
+  setOptimizationMode,
+  maxSources,
+  setMaxSources,
+  maxToken,
+  setMaxToken,
+  fileIds,
+  setFileIds,
+  files,
+  setFiles,
+}: {
+  sendMessage: (message: string) => void;
+  focusMode: string;
+  setFocusMode: (mode: string) => void;
+  optimizationMode: string;
+  setOptimizationMode: (mode: string) => void;
+  maxSources: number | undefined;
+  setMaxSources: (sources: number | undefined) => void;
+  maxToken: number | undefined;
+  setMaxToken: (tokens: number | undefined) => void;
+  fileIds: string[];
+  setFileIds: (fileIds: string[]) => void;
+  files: File[];
+  setFiles: (files: File[]) => void;
+}) => {
+  const [copilotEnabled, setCopilotEnabled] = useState(false);
   const [message, setMessage] = useState('');
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -65,11 +93,26 @@ const EmptyChatMessageInput = () => {
         />
         <div className="flex flex-row items-center justify-between mt-4">
           <div className="flex flex-row items-center space-x-2 lg:space-x-4">
-            <Focus />
-            <Attach showText />
+            <SourcesConfig
+              maxSources={maxSources}
+              setMaxSources={setMaxSources}
+              maxToken={maxToken}
+              setMaxToken={setMaxToken}
+            />
+            <Focus focusMode={focusMode} setFocusMode={setFocusMode} />
+            <Attach
+              fileIds={fileIds}
+              setFileIds={setFileIds}
+              files={files}
+              setFiles={setFiles}
+              showText
+            />
           </div>
           <div className="flex flex-row items-center space-x-1 sm:space-x-4">
-            <Optimization />
+            <Optimization
+              optimizationMode={optimizationMode}
+              setOptimizationMode={setOptimizationMode}
+            />
             <button
               disabled={message.trim().length === 0}
               className="bg-[#24A0ED] text-white disabled:text-black/50 dark:disabled:text-white/50 disabled:bg-[#e0e0dc] dark:disabled:bg-[#ececec21] hover:bg-opacity-85 transition duration-100 rounded-full p-2"

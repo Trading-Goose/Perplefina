@@ -1,25 +1,25 @@
 import { searchSearxng } from '@/lib/searxng';
 
 const websitesForTopic = {
-  tech: {
-    query: ['technology news', 'latest tech', 'AI', 'science and innovation'],
-    links: ['techcrunch.com', 'wired.com', 'theverge.com'],
+  markets: {
+    query: ['stock market news', 'market analysis', 'trading', 'indices', 'S&P 500', 'NASDAQ'],
+    links: ['bloomberg.com', 'marketwatch.com', 'wsj.com', 'reuters.com'],
   },
   finance: {
-    query: ['finance news', 'economy', 'stock market', 'investing'],
-    links: ['bloomberg.com', 'cnbc.com', 'marketwatch.com'],
+    query: ['finance news', 'economy', 'banking', 'financial markets', 'investing'],
+    links: ['bloomberg.com', 'cnbc.com', 'ft.com', 'marketwatch.com'],
   },
-  art: {
-    query: ['art news', 'culture', 'modern art', 'cultural events'],
-    links: ['artnews.com', 'hyperallergic.com', 'theartnewspaper.com'],
+  crypto: {
+    query: ['cryptocurrency news', 'bitcoin', 'ethereum', 'blockchain', 'DeFi'],
+    links: ['coindesk.com', 'cointelegraph.com', 'decrypt.co', 'theblock.co'],
   },
-  sports: {
-    query: ['sports news', 'latest sports', 'cricket football tennis'],
-    links: ['espn.com', 'bbc.com/sport', 'skysports.com'],
+  economy: {
+    query: ['economic news', 'GDP', 'inflation', 'federal reserve', 'interest rates'],
+    links: ['reuters.com', 'bloomberg.com', 'wsj.com', 'ft.com'],
   },
-  entertainment: {
-    query: ['entertainment news', 'movies', 'TV shows', 'celebrities'],
-    links: ['hollywoodreporter.com', 'variety.com', 'deadline.com'],
+  earnings: {
+    query: ['earnings reports', 'quarterly results', 'company earnings', 'revenue'],
+    links: ['seekingalpha.com', 'marketwatch.com', 'cnbc.com', 'yahoo.com'],
   },
 };
 
@@ -31,7 +31,7 @@ export const GET = async (req: Request) => {
 
     const mode: 'normal' | 'preview' =
       (params.get('mode') as 'normal' | 'preview') || 'normal';
-    const topic: Topic = (params.get('topic') as Topic) || 'tech';
+    const topic: Topic = (params.get('topic') as Topic) || 'finance';
 
     const selectedTopic = websitesForTopic[topic];
 
@@ -85,10 +85,25 @@ export const GET = async (req: Request) => {
       },
     );
   } catch (err) {
-    console.error(`An error occurred in discover route: ${err}`);
+    console.error(`An error occurred in discover route:`, err);
+    
+    // Check if it's a configuration error
+    if (err instanceof Error && err.message.includes('SearXNG')) {
+      return Response.json(
+        {
+          message: 'Search service not configured. Please configure SearXNG API endpoint.',
+          error: err.message,
+        },
+        {
+          status: 503, // Service Unavailable
+        },
+      );
+    }
+    
     return Response.json(
       {
         message: 'An error has occurred',
+        error: err instanceof Error ? err.message : 'Unknown error',
       },
       {
         status: 500,

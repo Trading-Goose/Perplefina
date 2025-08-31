@@ -1,8 +1,8 @@
-# Perplexica Search API Documentation
+# Perplefina Search API Documentation
 
 ## Overview
 
-Perplexica’s Search API makes it easy to use our AI-powered search engine. You can run different types of searches, pick the models you want to use, and get the most recent info. Follow the following headings to learn more about Perplexica's search API.
+Perplefina's Search API provides powerful financial search and analysis capabilities. You can run different types of financial searches, use custom AI models, and get the most recent market information. This API supports specialized focus modes for financial research, custom model configurations, and advanced search parameters.
 
 ## Endpoint
 
@@ -20,49 +20,66 @@ The API accepts a JSON object in the request body, where you define the focus mo
 {
   "chatModel": {
     "provider": "openai",
-    "name": "gpt-4o-mini"
+    "model": "gpt-4o-mini",
+    "apiKey": "sk-...",  // Optional: for custom API key
+    "baseUrl": "https://api.openai.com/v1"  // Optional: for custom endpoint
   },
-  "embeddingModel": {
-    "provider": "openai",
-    "name": "text-embedding-3-large"
-  },
-  "optimizationMode": "speed",
-  "focusMode": "webSearch",
-  "query": "What is Perplexica",
+  "optimizationMode": "balanced",
+  "focusMode": "news",
+  "query": "Tesla latest earnings report",
   "history": [
-    ["human", "Hi, how are you?"],
-    ["assistant", "I am doing well, how can I help you today?"]
+    ["human", "What are the latest market trends?"],
+    ["assistant", "The market has been showing strong momentum..."]
   ],
-  "systemInstructions": "Focus on providing technical details about Perplexica's architecture.",
+  "systemInstructions": "Focus on financial metrics and market impact.",
+  "maxSources": 15,
+  "maxToken": 4000,
+  "includeImages": false,
+  "includeVideos": false,
   "stream": false
 }
 ```
 
 ### Request Parameters
 
-- **`chatModel`** (object, optional): Defines the chat model to be used for the query. For model details you can send a GET request at `http://localhost:3000/api/models`. Make sure to use the key value (For example "gpt-4o-mini" instead of the display name "GPT 4 omni mini").
+- **`chatModel`** (object, optional): Defines the chat model to be used for the query. You can either use system-configured models or provide custom model configuration.
 
-  - `provider`: Specifies the provider for the chat model (e.g., `openai`, `ollama`).
-  - `name`: The specific model from the chosen provider (e.g., `gpt-4o-mini`).
-  - Optional fields for custom OpenAI configuration:
-    - `customOpenAIBaseURL`: If you’re using a custom OpenAI instance, provide the base URL.
-    - `customOpenAIKey`: The API key for a custom OpenAI instance.
-
-- **`embeddingModel`** (object, optional): Defines the embedding model for similarity-based searching. For model details you can send a GET request at `http://localhost:3000/api/models`. Make sure to use the key value (For example "text-embedding-3-large" instead of the display name "Text Embedding 3 Large").
-
-  - `provider`: The provider for the embedding model (e.g., `openai`).
-  - `name`: The specific embedding model (e.g., `text-embedding-3-large`).
+  - `provider` (string): Specifies the provider for the chat model (e.g., `openai`, `ollama`, `groq`, `anthropic`).
+  - `model` (string): The specific model from the chosen provider (e.g., `gpt-4o-mini`, `llama3`).
+  - **Custom Model Configuration** (all fields required for custom models):
+    - `apiKey` (string): Your API key for the model provider.
+    - `baseUrl` (string, optional): Custom base URL if using a self-hosted or proxy endpoint.
 
 - **`focusMode`** (string, required): Specifies which focus mode to use. Available modes:
 
-  - `webSearch`, `academicSearch`, `writingAssistant`, `wolframAlphaSearch`, `youtubeSearch`, `redditSearch`.
+  - **Financial Modes:**
+    - `news`: Searches latest financial news and market updates (uses news engines).
+    - `fundamentals`: Analyzes company fundamentals, earnings, and financial statements.
+    - `macroEconomy`: Provides macroeconomic data, indicators, and analysis.
+    - `social`: Searches social media and forums for market sentiment and discussions.
+  
+  - **General Modes:**
+    - `webSearch`: General web search across all engines.
+    - `academicSearch`: Academic papers and research (uses arxiv, google scholar, pubmed).
+    - `writingAssistant`: Writing help without web search.
+    - `wolframAlphaSearch`: Computational and data analysis queries.
+    - `youtubeSearch`: YouTube video search.
+    - `redditSearch`: Reddit discussion search.
 
-- **`optimizationMode`** (string, optional): Specifies the optimization mode to control the balance between performance and quality. Available modes:
+- **`optimizationMode`** (string, optional): Specifies the optimization mode to control the balance between performance and quality. Defaults to `balanced`. Available modes:
 
-  - `speed`: Prioritize speed and return the fastest answer.
-  - `balanced`: Provide a balanced answer with good speed and reasonable quality.
+  - `speed`: Prioritize speed without reranking results.
+  - `balanced`: Use embedding models for reranking to improve result relevance.
 
 - **`query`** (string, required): The search query or question.
+
+- **`maxSources`** (number, optional): Maximum number of sources to retrieve. Defaults vary by focus mode (10-25).
+
+- **`maxToken`** (number, optional): Maximum number of tokens for the response. Default is 4000.
+
+- **`includeImages`** (boolean, optional): Whether to include images in search results. Default is false.
+
+- **`includeVideos`** (boolean, optional): Whether to include videos in search results. Default is false.
 
 - **`systemInstructions`** (string, optional): Custom instructions provided by the user to guide the AI's response. These instructions are treated as user preferences and have lower priority than the system's core instructions. For example, you can specify a particular writing style, format, or focus area.
 
@@ -85,23 +102,22 @@ The response from the API includes both the final message and the sources used t
 
 ```json
 {
-  "message": "Perplexica is an innovative, open-source AI-powered search engine designed to enhance the way users search for information online. Here are some key features and characteristics of Perplexica:\n\n- **AI-Powered Technology**: It utilizes advanced machine learning algorithms to not only retrieve information but also to understand the context and intent behind user queries, providing more relevant results [1][5].\n\n- **Open-Source**: Being open-source, Perplexica offers flexibility and transparency, allowing users to explore its functionalities without the constraints of proprietary software [3][10].",
+  "message": "Tesla reported strong Q3 2024 earnings with revenue of $25.18 billion, exceeding analyst expectations. Here are the key highlights:\n\n- **Revenue Growth**: Total revenue increased 8% year-over-year to $25.18 billion, beating consensus estimates of $24.38 billion.\n\n- **Profitability**: Net income reached $2.17 billion with an operating margin of 10.8%, demonstrating improved operational efficiency.\n\n- **Vehicle Deliveries**: Tesla delivered 462,890 vehicles in Q3, marking a 6.4% increase from the previous quarter.",
   "sources": [
     {
-      "pageContent": "Perplexica is an innovative, open-source AI-powered search engine designed to enhance the way users search for information online.",
+      "pageContent": "Tesla reported third-quarter revenue of $25.18 billion, beating Wall Street estimates...",
       "metadata": {
-        "title": "What is Perplexica, and how does it function as an AI-powered search ...",
-        "url": "https://askai.glarity.app/search/What-is-Perplexica--and-how-does-it-function-as-an-AI-powered-search-engine"
+        "title": "Tesla Q3 2024 Earnings Beat Expectations",
+        "url": "https://finance.yahoo.com/news/tesla-q3-earnings"
       }
     },
     {
-      "pageContent": "Perplexica is an open-source AI-powered search tool that dives deep into the internet to find precise answers.",
+      "pageContent": "Tesla's Q3 net income rose to $2.17 billion, with operating margins improving to 10.8%...",
       "metadata": {
-        "title": "Sahar Mor's Post",
-        "url": "https://www.linkedin.com/posts/sahar-mor_a-new-open-source-project-called-perplexica-activity-7204489745668694016-ncja"
+        "title": "Tesla Reports Record Q3 Profitability",
+        "url": "https://www.cnbc.com/tesla-earnings"
       }
     }
-        ....
   ]
 }
 ```
@@ -143,3 +159,102 @@ If an error occurs during the search process, the API will return an appropriate
 
 - **400**: If the request is malformed or missing required fields (e.g., no focus mode or query).
 - **500**: If an internal server error occurs during the search.
+
+## Examples
+
+### Using Custom Model API
+
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chatModel": {
+      "provider": "openai",
+      "model": "gpt-4-turbo",
+      "apiKey": "your-api-key-here",
+      "baseUrl": "https://api.openai.com/v1"
+    },
+    "focusMode": "fundamentals",
+    "query": "Apple stock PE ratio and earnings growth",
+    "optimizationMode": "balanced",
+    "maxSources": 20,
+    "maxToken": 5000
+  }'
+```
+
+### Financial News Search
+
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "focusMode": "news",
+    "query": "Federal Reserve interest rate decision impact on tech stocks",
+    "optimizationMode": "speed",
+    "maxSources": 25,
+    "systemInstructions": "Focus on the most recent developments and market reactions"
+  }'
+```
+
+### Macro Economy Analysis
+
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "focusMode": "macroEconomy",
+    "query": "US inflation data and GDP growth trends 2024",
+    "optimizationMode": "balanced",
+    "maxSources": 20,
+    "includeImages": true
+  }'
+```
+
+### Social Sentiment Analysis
+
+```bash
+curl -X POST http://localhost:3000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "focusMode": "social",
+    "query": "Reddit sentiment on NVDA stock after earnings",
+    "optimizationMode": "balanced",
+    "maxSources": 20,
+    "includeVideos": true
+  }'
+```
+
+### Streaming Response Example
+
+```javascript
+const response = await fetch('http://localhost:3000/api/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    focusMode: 'news',
+    query: 'Latest cryptocurrency market trends',
+    stream: true,
+    maxSources: 15
+  })
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  
+  const lines = decoder.decode(value).split('\n');
+  for (const line of lines) {
+    if (line) {
+      const data = JSON.parse(line);
+      if (data.type === 'response') {
+        console.log('Chunk:', data.data);
+      } else if (data.type === 'sources') {
+        console.log('Sources:', data.data);
+      }
+    }
+  }
+}
+```

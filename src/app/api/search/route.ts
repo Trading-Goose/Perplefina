@@ -1,44 +1,65 @@
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import type { Embeddings } from '@langchain/core/embeddings';
-import { ChatOpenAI } from '@langchain/openai';
 import {
   getAvailableChatModelProviders,
   getAvailableEmbeddingModelProviders,
 } from '@/lib/providers';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { MetaSearchAgentType } from '@/lib/search/metaSearchAgent';
-import {
-  getCustomOpenaiApiKey,
-  getCustomOpenaiApiUrl,
-  getCustomOpenaiModelName,
-} from '@/lib/config';
 import { searchHandlers } from '@/lib/search';
+import { createCustomModel, validateCustomModel } from '@/lib/providers/customModels';
 
 interface chatModel {
   provider: string;
-  name: string;
-  customOpenAIKey?: string;
-  customOpenAIBaseURL?: string;
-}
-
-interface embeddingModel {
-  provider: string;
-  name: string;
+  model: string;
+  apiKey?: string;
+  baseUrl?: string;
 }
 
 interface ChatRequestBody {
   optimizationMode: 'speed' | 'balanced';
   focusMode: string;
   chatModel?: chatModel;
-  embeddingModel?: embeddingModel;
   query: string;
   history: Array<[string, string]>;
   stream?: boolean;
   systemInstructions?: string;
+  maxSources?: number;
+  maxToken?: number;
+  includeImages?: boolean;
+  includeVideos?: boolean;
 }
 
 export const POST = async (req: Request) => {
   try {
+    // Log request origin (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      const origin = req.headers.get('origin') || 'unknown';
+      const userAgent = req.headers.get('user-agent') || 'unknown';
+      const referer = req.headers.get('referer') || 'none';
+      const forwardedFor = req.headers.get('x-forwarded-for');
+      const realIp = req.headers.get('x-real-ip');
+      const ip = forwardedFor || realIp || 'unknown';
+      
+      console.log('=== Incoming Search Request ===');
+      console.log('Origin:', origin);
+      console.log('Referer:', referer);
+      console.log('IP:', ip);
+      console.log('User-Agent:', userAgent);
+      console.log('Timestamp:', new Date().toISOString());
+      
+      const body: ChatRequestBody = await req.json();
+      
+      console.log('Focus Mode:', body.focusMode);
+      console.log('Query:', body.query);
+      console.log('Optimization:', body.optimizationMode || 'balanced');
+      console.log('Custom AI:', body.chatModel ? `${body.chatModel.provider}/${body.chatModel.model}` : 'default');
+      console.log('================================');
+      
+      // Re-parse body since we already consumed it
+      req = new Request(req, { body: JSON.stringify(body) });
+    }
+    
     const body: ChatRequestBody = await req.json();
 
     if (!body.focusMode || !body.query) {
@@ -58,64 +79,69 @@ export const POST = async (req: Request) => {
         : new AIMessage({ content: msg[1] });
     });
 
-    const [chatModelProviders, embeddingModelProviders] = await Promise.all([
-      getAvailableChatModelProviders(),
-      getAvailableEmbeddingModelProviders(),
-    ]);
-
-    const chatModelProvider =
-      body.chatModel?.provider || Object.keys(chatModelProviders)[0];
-    const chatModel =
-      body.chatModel?.name ||
-      Object.keys(chatModelProviders[chatModelProvider])[0];
-
-    const embeddingModelProvider =
-      body.embeddingModel?.provider || Object.keys(embeddingModelProviders)[0];
-    const embeddingModel =
-      body.embeddingModel?.name ||
-      Object.keys(embeddingModelProviders[embeddingModelProvider])[0];
-
     let llm: BaseChatModel | undefined;
-    let embeddings: Embeddings | undefined;
 
-    if (body.chatModel?.provider === 'custom_openai') {
-      llm = new ChatOpenAI({
-        modelName: body.chatModel?.name || getCustomOpenaiModelName(),
-        apiKey: body.chatModel?.customOpenAIKey || getCustomOpenaiApiKey(),
-        temperature: 0.7,
-        configuration: {
-          baseURL:
-            body.chatModel?.customOpenAIBaseURL || getCustomOpenaiApiUrl(),
-        },
-      }) as unknown as BaseChatModel;
-    } else if (
-      chatModelProviders[chatModelProvider] &&
-      chatModelProviders[chatModelProvider][chatModel]
-    ) {
-      llm = chatModelProviders[chatModelProvider][chatModel]
-        .model as unknown as BaseChatModel | undefined;
+    // Check if custom model configuration is provided
+    if (body.chatModel?.apiKey && body.chatModel?.model) {
+      const customConfig = {
+        provider: body.chatModel.provider,
+        model: body.chatModel.model,
+        apiKey: body.chatModel.apiKey,
+        baseUrl: body.chatModel.baseUrl,
+      };
+
+      const validation = validateCustomModel(customConfig);
+      if (!validation.isValid) {
+        return Response.json({ message: validation.error }, { status: 400 });
+      }
+
+      llm = createCustomModel(customConfig);
+    } else {
+      // Use default configured models
+      const chatModelProviders = await getAvailableChatModelProviders();
+      
+      const chatModelProvider =
+        body.chatModel?.provider || Object.keys(chatModelProviders)[0];
+      const chatModel =
+        body.chatModel?.model ||
+        Object.keys(chatModelProviders[chatModelProvider] || {})[0];
+      
+      if (
+        chatModelProviders[chatModelProvider] &&
+        chatModelProviders[chatModelProvider][chatModel]
+      ) {
+        llm = chatModelProviders[chatModelProvider][chatModel]
+          .model as unknown as BaseChatModel | undefined;
+      }
     }
 
-    if (
-      embeddingModelProviders[embeddingModelProvider] &&
-      embeddingModelProviders[embeddingModelProvider][embeddingModel]
-    ) {
-      embeddings = embeddingModelProviders[embeddingModelProvider][
-        embeddingModel
-      ].model as Embeddings | undefined;
-    }
-
-    if (!llm || !embeddings) {
+    if (!llm) {
       return Response.json(
-        { message: 'Invalid model selected' },
+        { message: 'Invalid model configuration' },
         { status: 400 },
       );
     }
 
-    const searchHandler: MetaSearchAgentType = searchHandlers[body.focusMode];
+    const searchHandler = searchHandlers[body.focusMode];
 
     if (!searchHandler) {
       return Response.json({ message: 'Invalid focus mode' }, { status: 400 });
+    }
+
+    // Get system-configured embedding model for reranking
+    let embeddings: Embeddings | null = null;
+    if (body.optimizationMode === 'balanced') {
+      const embeddingProviders = await getAvailableEmbeddingModelProviders();
+      
+      // Try to get the first available embedding model from system configuration
+      for (const provider of Object.keys(embeddingProviders)) {
+        const models = embeddingProviders[provider];
+        if (models && Object.keys(models).length > 0) {
+          const firstModel = Object.keys(models)[0];
+          embeddings = models[firstModel].model;
+          break;
+        }
+      }
     }
 
     const emitter = await searchHandler.searchAndAnswer(
@@ -126,6 +152,10 @@ export const POST = async (req: Request) => {
       body.optimizationMode,
       [],
       body.systemInstructions || '',
+      body.maxSources,
+      body.maxToken || 4000,
+      body.includeImages,
+      body.includeVideos,
     );
 
     if (!body.stream) {

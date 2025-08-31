@@ -1,22 +1,11 @@
-# 🚀 Perplexica - An AI-powered search engine 🔎 <!-- omit in toc -->
+# 📈 Perplefina - An AI-powered Financial News & Data Analysis Engine 🔍 <!-- omit in toc -->
 
-<div align="center" markdown="1">
-   <sup>Special thanks to:</sup>
-   <br>
-   <br>
-   <a href="https://www.warp.dev/perplexica">
-      <img alt="Warp sponsorship" width="400" src="https://github.com/user-attachments/assets/775dd593-9b5f-40f1-bf48-479faff4c27b">
-   </a>
+**A specialized financial search engine built for the [Trading Goose](https://trading-goose.github.io) Multi-LLM Agent Portfolio Management Project**
 
-### [Warp, the AI Devtool that lives in your terminal](https://www.warp.dev/perplexica)
-
-[Available for MacOS, Linux, & Windows](https://www.warp.dev/perplexica)
-
-</div>
+*Modified from Perplexica to provide dedicated financial news and data analysis capabilities for autonomous trading agents*
 
 <hr/>
 
-[![Discord](https://dcbadge.limes.pink/api/server/26aArMy8tT?style=flat)](https://discord.gg/26aArMy8tT)
 
 ![preview](.assets/perplexica-screenshot.png?)
 
@@ -41,9 +30,24 @@
 
 ## Overview
 
-Perplexica is an open-source AI-powered searching tool or an AI-powered search engine that goes deep into the internet to find answers. Inspired by Perplexity AI, it's an open-source option that not just searches the web but understands your questions. It uses advanced machine learning algorithms like similarity searching and embeddings to refine results and provides clear answers with sources cited.
+Perplefina is a specialized fork of Perplexica, developed as a core component of the **Trading Goose Multi-LLM Agent Portfolio Management System**. This project integrates multiple AI agents to autonomously analyze markets, make trading decisions, and manage investment portfolios.
 
-Using SearxNG to stay current and fully open source, Perplexica ensures you always get the most up-to-date information without compromising your privacy.
+### Trading Goose Project Integration
+
+Perplefina serves as the financial intelligence layer for Trading Goose, providing:
+- **Real-time Market Intelligence**: Feeds trading agents with up-to-date financial news and market data
+- **Multi-Agent Support**: Designed to handle concurrent requests from multiple LLM agents analyzing different market sectors
+- **API-First Architecture**: Built for seamless integration with the Trading Goose agent orchestration system
+
+### Key Capabilities
+
+This AI-powered search engine specializes in financial data retrieval, offering:
+- Deep searches into financial sources for market insights and economic indicators
+- Custom focus modes optimized for algorithmic trading strategies
+- Advanced reranking algorithms tuned for financial relevance
+- Integration with SearxNG configured with specialized financial search engines
+
+Learn more about the Trading Goose project at [trading-goose.github.io](https://trading-goose.github.io)
 
 Want to know more about its architecture and how it works? You can read it [here](https://github.com/ItzCrazyKns/Perplexica/tree/master/docs/architecture/README.md).
 
@@ -53,17 +57,26 @@ Want to know more about its architecture and how it works? You can read it [here
 
 ## Features
 
-- **Local LLMs**: You can utilize local LLMs such as Qwen, DeepSeek, Llama, and Mistral.
+### Trading Goose Integration Features
+- **Multi-Agent API Support**: Handle concurrent requests from multiple trading agents
+- **Custom Model Configuration**: Support for any OpenAI-compatible API for agent diversity
+- **Financial Focus Modes**: Specialized search modes tailored for trading strategies
+- **High-Performance Architecture**: Optimized for the rapid decision-making needs of algorithmic trading
+
+### Core Capabilities
+- **Local LLMs**: Support for local models via Ollama for sensitive financial data processing
 - **Two Main Modes:**
-  - **Copilot Mode:** (In development) Boosts search by generating different queries to find more relevant internet sources. Like normal search instead of just using the context by SearxNG, it visits the top matches and tries to find relevant sources to the user's query directly from the page.
-  - **Normal Mode:** Processes your query and performs a web search.
-- **Focus Modes:** Special modes to better answer specific types of questions. Perplexica currently has 6 focus modes:
-  - **All Mode:** Searches the entire web to find the best results.
-  - **Writing Assistant Mode:** Helpful for writing tasks that do not require searching the web.
-  - **Academic Search Mode:** Finds articles and papers, ideal for academic research.
-  - **YouTube Search Mode:** Finds YouTube videos based on the search query.
-  - **Wolfram Alpha Search Mode:** Answers queries that need calculations or data analysis using Wolfram Alpha.
-  - **Reddit Search Mode:** Searches Reddit for discussions and opinions related to the query.
+  - **Copilot Mode:** (In development) Enhanced search with multi-query generation
+  - **Normal Mode:** Standard query processing with web search
+  
+### Financial Focus Modes
+Specialized modes designed for the Trading Goose agents:
+- **News Mode:** Real-time financial news for market sentiment analysis
+- **Fundamentals Mode:** Company earnings, financial statements, and valuation metrics
+- **Macro Economy Mode:** Economic indicators, Fed policy, inflation data
+- **Social Mode:** Reddit, Twitter, and forum sentiment for alternative data signals
+- **Web Search Mode:** General market research and analysis
+- **Writing Assistant Mode:** Report generation for portfolio updates
 - **Current Information:** Some search tools might give you outdated info because they use data from crawling bots and convert them into embeddings and store them in a index. Unlike them, Perplexica uses SearxNG, a metasearch engine to get the results and rerank and get the most relevant source out of it, ensuring you always get the latest information without the overhead of daily data updates.
 - **API**: Integrate Perplexica into your existing applications and make use of its capibilities.
 
@@ -71,23 +84,41 @@ It has many more features like image and video search. Some of the planned featu
 
 ## Installation
 
-There are mainly 2 ways of installing Perplexica - With Docker, Without Docker. Using Docker is highly recommended.
+Perplefina uses a hybrid approach: the main application runs with npm, while the SearxNG search engine runs in Docker for optimal performance.
 
-### Getting Started with Docker (Recommended)
+### Prerequisites
 
-1. Ensure Docker is installed and running on your system.
-2. Clone the Perplexica repository:
+- Node.js (v18 or higher)
+- npm or yarn
+- Docker and Docker Compose (for SearxNG)
+
+### Installation Steps
+
+1. Clone the Perplefina repository:
 
    ```bash
-   git clone https://github.com/ItzCrazyKns/Perplexica.git
+   git clone https://github.com/trading-goose/Perplefina.git
+   cd Perplefina
    ```
 
-3. After cloning, navigate to the directory containing the project files.
+2. Set up and start the SearxNG search engine:
 
-4. Rename the `sample.config.toml` file to `config.toml`. For Docker setups, you need only fill in the following fields:
+   ```bash
+   cd searxng
+   docker compose up -d
+   ```
+
+   This will start the SearxNG engine with specialized financial search configurations.
+
+3. Navigate back to the root directory and configure the application:
+
+   ```bash
+   cd ..
+   ```
+
+4. Rename the `sample.config.toml` file to `config.toml` and fill in the following fields:
 
    - `OPENAI`: Your OpenAI API key. **You only need to fill this if you wish to use OpenAI's models**.
-   - `CUSTOM_OPENAI`: Your OpenAI-API-compliant local server URL, model name, and API key. You should run your local server with host set to `0.0.0.0`, take note of which port number it is running on, and then use that port number to set `API_URL = http://host.docker.internal:PORT_NUMBER`. You must specify the model name, such as `MODEL_NAME = "unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q4_K_XL"`. Finally, set `API_KEY` to the appropriate value. If you have not defined an API key, just put anything you want in-between the quotation marks: `API_KEY = "whatever-you-want-but-not-blank"` **You only need to configure these settings if you want to use a local OpenAI-compliant server, such as Llama.cpp's [`llama-server`](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)**.
    - `OLLAMA`: Your Ollama API URL. You should enter it as `http://host.docker.internal:PORT_NUMBER`. If you installed Ollama on port 11434, use `http://host.docker.internal:11434`. For other ports, adjust accordingly. **You need to fill this if you wish to use Ollama's models instead of OpenAI's**.
    - `GROQ`: Your Groq API key. **You only need to fill this if you wish to use Groq's hosted models**.
    - `ANTHROPIC`: Your Anthropic API key. **You only need to fill this if you wish to use Anthropic models**.
@@ -95,43 +126,63 @@ There are mainly 2 ways of installing Perplexica - With Docker, Without Docker. 
    - `DEEPSEEK`: Your Deepseek API key. **Only needed if you want Deepseek models.**
    - `AIMLAPI`: Your AI/ML API key. **Only needed if you want to use AI/ML API models and embeddings.**
 
-     **Note**: You can change these after starting Perplexica from the settings dialog.
+     **Note**: You can change these after starting Perplefina from the settings dialog.
 
    - `SIMILARITY_MEASURE`: The similarity measure to use (This is filled by default; you can leave it as is if you are unsure about it.)
 
-5. Ensure you are in the directory containing the `docker-compose.yaml` file and execute:
+5. Install dependencies and build the application:
 
    ```bash
-   docker compose up -d
+   npm install
+   npm run build
    ```
 
-6. Wait a few minutes for the setup to complete. You can access Perplexica at http://localhost:3000 in your web browser.
+6. Start the application:
 
-**Note**: After the containers are built, you can start Perplexica directly from Docker without having to open a terminal.
+   ```bash
+   npm run start
+   ```
 
-### Non-Docker Installation
+7. Access Perplefina at http://localhost:3000 in your web browser.
 
-1. Install SearXNG and allow `JSON` format in the SearXNG settings.
-2. Clone the repository and rename the `sample.config.toml` file to `config.toml` in the root directory. Ensure you complete all required fields in this file.
-3. After populating the configuration run `npm i`.
-4. Install the dependencies and then execute `npm run build`.
-5. Finally, start the app by running `npm run start`
+**Note**: Ensure that SearxNG is running (via docker compose in the searxng directory) before starting the main application.
 
-**Note**: Using Docker is recommended as it simplifies the setup process, especially for managing environment variables and dependencies.
+### Quick Start Commands
+
+```bash
+# Clone the repository
+git clone https://github.com/trading-goose/Perplefina.git
+cd Perplefina
+
+# Start SearxNG search engine
+cd searxng
+docker compose up -d
+cd ..
+
+# Configure the application
+cp sample.config.toml config.toml
+# Edit config.toml with your API keys
+
+# Build and start Perplefina
+npm install
+npm run build
+npm run start
+```
+
+### Stopping the Services
+
+```bash
+# Stop the main application
+# Press Ctrl+C in the terminal running npm run start
+
+# Stop SearxNG
+cd searxng
+docker compose down
+```
 
 See the [installation documentation](https://github.com/ItzCrazyKns/Perplexica/tree/master/docs/installation) for more information like updating, etc.
 
-### Troubleshooting
-
-#### Local OpenAI-API-Compliant Servers
-
-If Perplexica tells you that you haven't configured any chat model providers, ensure that:
-
-1. Your server is running on `0.0.0.0` (not `127.0.0.1`) and on the same port you put in the API URL.
-2. You have specified the correct model name loaded by your local LLM server.
-3. You have specified the correct API key, or if one is not defined, you have put *something* in the API key field and not left it empty.
-
-#### Ollama Connection Errors
+### Ollama Connection Errors
 
 If you're encountering an Ollama connection error, it is likely due to the backend being unable to connect to Ollama's API. To fix this issue you can:
 
@@ -150,59 +201,59 @@ If you're encountering an Ollama connection error, it is likely due to the backe
 
    - Ensure that the port (default is 11434) is not blocked by your firewall.
 
-## Using as a Search Engine
+## Using as a Financial Research Tool
 
-If you wish to use Perplexica as an alternative to traditional search engines like Google or Bing, or if you want to add a shortcut for quick access from your browser's search bar, follow these steps:
+If you wish to use Perplefina as your primary financial research tool or add a shortcut for quick market analysis from your browser's search bar, follow these steps:
 
 1. Open your browser's settings.
 2. Navigate to the 'Search Engines' section.
-3. Add a new site search with the following URL: `http://localhost:3000/?q=%s`. Replace `localhost` with your IP address or domain name, and `3000` with the port number if Perplexica is not hosted locally.
-4. Click the add button. Now, you can use Perplexica directly from your browser's search bar.
+3. Add a new site search with the following URL: `http://localhost:3000/?q=%s`. Replace `localhost` with your IP address or domain name, and `3000` with the port number if Perplefina is not hosted locally.
+4. Click the add button. Now, you can use Perplefina directly from your browser's search bar for quick financial queries.
 
-## Using Perplexica's API
+## Using Perplefina's API
 
-Perplexica also provides an API for developers looking to integrate its powerful search engine into their own applications. You can run searches, use multiple models and get answers to your queries.
+### Trading Goose Agent Integration
 
-For more details, check out the full documentation [here](https://github.com/ItzCrazyKns/Perplexica/tree/master/docs/API/SEARCH.md).
+Perplefina's API is designed to be the primary data source for Trading Goose agents. Each agent can:
+- Query different financial focus modes based on their specialization
+- Use custom LLM configurations for diverse analysis perspectives  
+- Stream responses for real-time decision making
+- Process concurrent requests without interference
 
-## Expose Perplexica to network
+### API Documentation
 
-Perplexica runs on Next.js and handles all API requests. It works right away on the same network and stays accessible even with port forwarding.
+For detailed API usage, including custom model configuration and financial focus modes, see the [API documentation](./docs/API/SEARCH.md).
 
-## One-Click Deployment
+### Example: Trading Agent Query
+```javascript
+// Example: A Trading Goose agent querying for market analysis
+const response = await fetch('http://localhost:3000/api/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    chatModel: {
+      provider: 'openai',
+      model: 'gpt-4-turbo',
+      apiKey: process.env.AGENT_API_KEY
+    },
+    focusMode: 'fundamentals',
+    query: 'NVDA earnings analysis and forward PE ratio',
+    maxSources: 20,
+    optimizationMode: 'balanced'
+  })
+});
+```
 
-[![Deploy to Sealos](https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg)](https://usw.sealos.io/?openapp=system-template%3FtemplateName%3Dperplexica)
-[![Deploy to RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/?app_id=267)
-[![Run on ClawCloud](https://raw.githubusercontent.com/ClawCloud/Run-Template/refs/heads/main/Run-on-ClawCloud.svg)](https://template.run.claw.cloud/?referralCode=U11MRQ8U9RM4&openapp=system-fastdeploy%3FtemplateName%3Dperplexica)
+## Expose Perplefina to network
 
-## Upcoming Features
+Perplefina runs on Next.js and handles all API requests. It works right away on the same network and stays accessible even with port forwarding.
 
-- [x] Add settings page
-- [x] Adding support for local LLMs
-- [x] History Saving features
-- [x] Introducing various Focus Modes
-- [x] Adding API support
-- [x] Adding Discover
-- [ ] Finalizing Copilot Mode
+## Project Links
 
-## Support Us
+- **Trading Goose Project**: [trading-goose.github.io](https://trading-goose.github.io)
+- **Perplefina Repository**: [github.com/trading-goose/Perplefina](https://github.com/trading-goose/Perplefina)
+- **API Documentation**: [Search API Docs](./docs/API/SEARCH.md)
 
-If you find Perplexica useful, consider giving us a star on GitHub. This helps more people discover Perplexica and supports the development of new features. Your support is greatly appreciated.
+## Credits
 
-### Donations
-
-We also accept donations to help sustain our project. If you would like to contribute, you can use the following options to donate. Thank you for your support!
-
-| Ethereum                                              |
-| ----------------------------------------------------- |
-| Address: `0xB025a84b2F269570Eb8D4b05DEdaA41D8525B6DD` |
-
-## Contribution
-
-Perplexica is built on the idea that AI and large language models should be easy for everyone to use. If you find bugs or have ideas, please share them in via GitHub Issues. For more information on contributing to Perplexica you can read the [CONTRIBUTING.md](CONTRIBUTING.md) file to learn more about Perplexica and how you can contribute to it.
-
-## Help and Support
-
-If you have any questions or feedback, please feel free to reach out to us. You can create an issue on GitHub or join our Discord server. There, you can connect with other users, share your experiences and reviews, and receive more personalized help. [Click here](https://discord.gg/EFwsmQDgAu) to join the Discord server. To discuss matters outside of regular support, feel free to contact me on Discord at `itzcrazykns`.
-
-Thank you for exploring Perplexica, the AI-powered search engine designed to enhance your search experience. We are constantly working to improve Perplexica and expand its capabilities. We value your feedback and contributions which help us make Perplexica even better. Don't forget to check back for updates and new features!
+Perplefina is based on the excellent [Perplexica](https://github.com/ItzCrazyKns/Perplexica) project by ItzCrazyKns, modified and enhanced for the Trading Goose Multi-LLM Agent Portfolio Management System.

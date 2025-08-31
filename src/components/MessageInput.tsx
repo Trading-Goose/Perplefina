@@ -4,13 +4,33 @@ import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import Attach from './MessageInputActions/Attach';
 import CopilotToggle from './MessageInputActions/Copilot';
+import SourcesConfig from './MessageInputActions/SourcesConfig';
 import { File } from './ChatWindow';
 import AttachSmall from './MessageInputActions/AttachSmall';
-import { useChat } from '@/lib/hooks/useChat';
 
-const MessageInput = () => {
-  const { loading, sendMessage } = useChat();
-
+const MessageInput = ({
+  sendMessage,
+  loading,
+  fileIds,
+  setFileIds,
+  files,
+  setFiles,
+  maxSources,
+  setMaxSources,
+  maxToken,
+  setMaxToken,
+}: {
+  sendMessage: (message: string) => void;
+  loading: boolean;
+  fileIds: string[];
+  setFileIds: (fileIds: string[]) => void;
+  files: File[];
+  setFiles: (files: File[]) => void;
+  maxSources: number | undefined;
+  setMaxSources: (sources: number | undefined) => void;
+  maxToken: number | undefined;
+  setMaxToken: (tokens: number | undefined) => void;
+}) => {
   const [copilotEnabled, setCopilotEnabled] = useState(false);
   const [message, setMessage] = useState('');
   const [textareaRows, setTextareaRows] = useState(1);
@@ -68,7 +88,14 @@ const MessageInput = () => {
         mode === 'multi' ? 'flex-col rounded-lg' : 'flex-row rounded-full',
       )}
     >
-      {mode === 'single' && <AttachSmall />}
+      {mode === 'single' && (
+        <AttachSmall
+          fileIds={fileIds}
+          setFileIds={setFileIds}
+          files={files}
+          setFiles={setFiles}
+        />
+      )}
       <TextareaAutosize
         ref={inputRef}
         value={message}
@@ -80,7 +107,13 @@ const MessageInput = () => {
         placeholder="Ask a follow-up"
       />
       {mode === 'single' && (
-        <div className="flex flex-row items-center space-x-4">
+        <div className="flex flex-row items-center space-x-2">
+          <SourcesConfig
+            maxSources={maxSources}
+            setMaxSources={setMaxSources}
+            maxToken={maxToken}
+            setMaxToken={setMaxToken}
+          />
           <CopilotToggle
             copilotEnabled={copilotEnabled}
             setCopilotEnabled={setCopilotEnabled}
@@ -95,8 +128,19 @@ const MessageInput = () => {
       )}
       {mode === 'multi' && (
         <div className="flex flex-row items-center justify-between w-full pt-2">
-          <AttachSmall />
-          <div className="flex flex-row items-center space-x-4">
+          <AttachSmall
+            fileIds={fileIds}
+            setFileIds={setFileIds}
+            files={files}
+            setFiles={setFiles}
+          />
+          <div className="flex flex-row items-center space-x-2">
+            <SourcesConfig
+              maxSources={maxSources}
+              setMaxSources={setMaxSources}
+              maxToken={maxToken}
+              setMaxToken={setMaxToken}
+            />
             <CopilotToggle
               copilotEnabled={copilotEnabled}
               setCopilotEnabled={setCopilotEnabled}
