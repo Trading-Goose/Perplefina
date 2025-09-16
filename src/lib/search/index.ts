@@ -18,7 +18,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0,
     searchWeb: true,
-    maxSources: 20,
+    maxSources: 12,
   }),
   news: new MetaSearchAgent({
     activeEngines: ['google news', 'bing news', 'yahoo news', 'brave.news', 'google', 'bing', 'yahoo', 'duckduckgo', 'qwant news'],
@@ -27,7 +27,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    maxSources: 25,
+    maxSources: 12,
   }),
   macroEconomy: new MetaSearchAgent({
     activeEngines: ['google', 'bing', 'brave', 'duckduckgo', 'google news'],
@@ -36,7 +36,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    maxSources: 20,
+    maxSources: 10,
   }),
   fundamentals: new MetaSearchAgent({
     activeEngines: ['google', 'bing', 'brave', 'yahoo', 'duckduckgo'],
@@ -45,7 +45,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    maxSources: 15,
+    maxSources: 10,
   }),
   social: new MetaSearchAgent({
     activeEngines: ['reddit', 'youtube', 'google', 'bing', 'brave', 'duckduckgo', 'qwant news'],
@@ -54,7 +54,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    maxSources: 20,
+    maxSources: 12,
   }),
   writingAssistant: new MetaSearchAgent({
     activeEngines: [],
@@ -82,7 +82,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    maxSources: 15,
+    maxSources: 10,
   }),
   redditSearch: new MetaSearchAgent({
     activeEngines: ['reddit'],
@@ -91,6 +91,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    maxSources: 15,
+    maxSources: 10,
   }),
 };

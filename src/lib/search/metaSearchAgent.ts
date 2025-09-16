@@ -70,7 +70,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
   }
 
 
-  private async createSearchRetrieverChain(llm: BaseChatModel, optimizationMode: 'speed' | 'balanced' | 'quality' = 'balanced', includeImages?: boolean, includeVideos?: boolean, maxToken?: number) {
+  private async createSearchRetrieverChain(llm: BaseChatModel, optimizationMode: 'speed' | 'balanced' | 'quality' = 'balanced', includeImages?: boolean, includeVideos?: boolean, maxToken?: number, sourcesLimit?: number) {
     (llm as unknown as ChatOpenAI).temperature = 0;
     // Apply maxToken limit if provided
     if (maxToken) {
@@ -94,6 +94,10 @@ class MetaSearchAgent implements MetaSearchAgentType {
         let question = this.config.summarizer
           ? await questionOutputParser.parse(input)
           : input;
+
+        console.log(`[DEBUG] LLM Response Input: "${input.substring(0, 300)}..."`);
+        console.log(`[DEBUG] Parsed question: "${question}"`);
+        console.log(`[DEBUG] Parsed links: ${links.length} links found`);
 
         if (question === 'not_needed') {
           return { query: '', docs: [] };
@@ -217,7 +221,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           return { query: question, docs: docs };
         } else {
+          console.log(`[DEBUG] Raw question before processing: "${question}"`);
           question = question.replace(/<think>.*?<\/think>/g, '');
+          console.log(`[DEBUG] Question after removing think tags: "${question}"`);
 
           // Filter out YouTube and image searches for speed/balanced modes unless explicitly included
           let filteredEngines = this.config.activeEngines;
@@ -241,6 +247,11 @@ class MetaSearchAgent implements MetaSearchAgentType {
             engines: filteredEngines,
           });
 
+          // Debug logging
+          console.log(`[DEBUG] Search query: "${question}"`);
+          console.log(`[DEBUG] Engines used: ${filteredEngines.join(', ')}`);
+          console.log(`[DEBUG] Results found: ${res.results?.length || 0}`);
+
           // Filter out unwanted results
           const filteredResults = res.results.filter((result) => {
             // Filter out YouTube results in speed/balanced modes unless explicitly included
@@ -251,101 +262,21 @@ class MetaSearchAgent implements MetaSearchAgentType {
             return true;
           });
 
-          // Determine how many full pages to fetch based on optimization mode
-          const maxFullFetches = optimizationMode === 'speed' ? 3 : 
-                                 optimizationMode === 'balanced' ? 5 : 8;
+          // For now, create all documents as snippets
+          // We'll fetch full content AFTER reranking selects the final sources
+          const documents = filteredResults.map(result =>
+            new Document({
+              pageContent: result.content || `${result.title || 'No title'} - ${result.url || 'No URL'}`,
+              metadata: {
+                title: result.title || 'Untitled',
+                url: result.url || '',
+                needsFullContent: true, // Flag for later fetching
+                ...(result.img_src && (optimizationMode === 'quality' || includeImages === true) && { img_src: result.img_src }),
+              },
+            })
+          );
           
-          // Get URLs to fetch full content from (top N results)
-          const urlsToFetch = filteredResults
-            .slice(0, Math.min(maxFullFetches, filteredResults.length))
-            .map(r => r.url);
-
-          let fullContentDocs: Document[] = [];
-          
-          // Fetch full content if we have URLs
-          if (urlsToFetch.length > 0) {
-            try {
-              const { getDocumentsFromLinks } = await import('../utils/documents');
-              const fetchedDocs = await getDocumentsFromLinks({ links: urlsToFetch });
-              
-              // Group documents by URL and combine content
-              const docGroups: Map<string, Document> = new Map();
-              
-              fetchedDocs.forEach(doc => {
-                const url = doc.metadata.url;
-                if (docGroups.has(url)) {
-                  const existing = docGroups.get(url)!;
-                  existing.pageContent += '\n\n' + doc.pageContent;
-                } else {
-                  docGroups.set(url, {
-                    ...doc,
-                    metadata: {
-                      ...doc.metadata,
-                      title: filteredResults.find(r => r.url === url)?.title || doc.metadata.title,
-                    }
-                  });
-                }
-              });
-              
-              // Summarize long documents if summarizer is enabled
-              if (this.config.summarizer) {
-                const summarizedDocs = await Promise.all(
-                  Array.from(docGroups.values()).map(async (doc) => {
-                    // Only summarize if content is longer than 2000 characters
-                    if (doc.pageContent.length > 2000) {
-                      try {
-                        const summary = await llm.invoke(`
-                          You are a web content summarizer. Summarize the following content into a detailed, comprehensive explanation that captures all key information.
-                          Focus on facts, data, and important details. Maintain a professional tone.
-                          
-                          <text>
-                          ${doc.pageContent.slice(0, 8000)} 
-                          </text>
-                          
-                          <query>
-                          ${question}
-                          </query>
-                          
-                          Provide a detailed summary that answers the query while preserving all important information:
-                        `);
-                        
-                        return new Document({
-                          pageContent: summary.content as string,
-                          metadata: doc.metadata
-                        });
-                      } catch (err) {
-                        console.warn('Error summarizing document:', err);
-                        return doc; // Return original if summarization fails
-                      }
-                    }
-                    return doc;
-                  })
-                );
-                fullContentDocs = summarizedDocs;
-              } else {
-                fullContentDocs = Array.from(docGroups.values());
-              }
-            } catch (error) {
-              console.warn('Error fetching full content, falling back to snippets:', error);
-            }
-          }
-
-          // For remaining results (or if fetching failed), use snippets
-          const snippetDocs = filteredResults
-            .slice(fullContentDocs.length)
-            .map(result =>
-              new Document({
-                pageContent: result.content || result.title || '',
-                metadata: {
-                  title: result.title,
-                  url: result.url,
-                  ...(result.img_src && (optimizationMode === 'quality' || includeImages === true) && { img_src: result.img_src }),
-                },
-              })
-            );
-
-          // Combine full content docs with snippet docs
-          const documents = [...fullContentDocs, ...snippetDocs];
+          console.log(`[DEBUG] Created ${documents.length} snippet documents for reranking`);
 
           return { query: question, docs: documents };
         }
@@ -384,7 +315,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           if (this.config.searchWeb) {
             const searchRetrieverChain =
-              await this.createSearchRetrieverChain(llm, optimizationMode, includeImages, includeVideos, maxToken);
+              await this.createSearchRetrieverChain(llm, optimizationMode, includeImages, includeVideos, maxToken, sourcesLimit);
 
             const searchRetrieverResult = await searchRetrieverChain.invoke({
               chat_history: processedHistory,
@@ -404,7 +335,16 @@ class MetaSearchAgent implements MetaSearchAgentType {
             sourcesLimit,
           );
 
-          return sortedDocs;
+          // Now fetch full content for the selected documents
+          const docsWithFullContent = await this.fetchFullContentForDocs(
+            sortedDocs,
+            llm,
+            query,
+            optimizationMode,
+            sourcesLimit
+          );
+
+          return docsWithFullContent;
         })
           .withConfig({
             runName: 'FinalSourceRetriever',
@@ -421,6 +361,120 @@ class MetaSearchAgent implements MetaSearchAgentType {
     ]).withConfig({
       runName: 'FinalResponseGenerator',
     });
+  }
+
+  private async fetchFullContentForDocs(
+    docs: Document[],
+    llm: BaseChatModel,
+    query: string,
+    optimizationMode: 'speed' | 'balanced' | 'quality',
+    maxSources: number
+  ): Promise<Document[]> {
+    // Determine how many to fetch based on optimization mode
+    const fetchPercentage = optimizationMode === 'speed' ? 0.2 :
+                           optimizationMode === 'balanced' ? 0.5 :
+                           1.0;
+    const desiredFullFetches = Math.max(1, Math.ceil(maxSources * fetchPercentage));
+    
+    console.log(`[DEBUG] Post-rerank fetch: Will try to fetch full content for ${desiredFullFetches} of ${docs.length} selected docs`);
+    
+    // Get all docs that could be fetched
+    const candidateDocs = docs.filter(doc => doc.metadata.needsFullContent);
+    
+    if (candidateDocs.length === 0) {
+      return docs;
+    }
+    
+    // Fetch with retry mechanism - keep trying until we get desired number or run out
+    const fullContentMap = new Map<string, string>();
+    let successfulFetches = 0;
+    let attemptIndex = 0;
+    
+    const { getDocumentsFromLinks } = await import('../utils/documents');
+    
+    while (successfulFetches < desiredFullFetches && attemptIndex < candidateDocs.length) {
+      const batchSize = Math.min(3, candidateDocs.length - attemptIndex); // Try 3 at a time
+      const batchDocs = candidateDocs.slice(attemptIndex, attemptIndex + batchSize);
+      const batchUrls = batchDocs.map(doc => doc.metadata.url);
+      
+      console.log(`[DEBUG] Attempting to fetch URLs ${attemptIndex + 1}-${attemptIndex + batchSize} (need ${desiredFullFetches - successfulFetches} more)`);
+      
+      try {
+        const fetchedDocs = await getDocumentsFromLinks({ links: batchUrls });
+        
+        // Group by URL
+        fetchedDocs.forEach(doc => {
+          if (!fullContentMap.has(doc.metadata.url)) {
+            successfulFetches++;
+          }
+          const existing = fullContentMap.get(doc.metadata.url) || '';
+          fullContentMap.set(doc.metadata.url, existing + '\n\n' + doc.pageContent);
+        });
+        
+        console.log(`[DEBUG] Successfully fetched ${fetchedDocs.length} chunks, ${successfulFetches} unique URLs so far`);
+      } catch (error) {
+        console.warn(`[DEBUG] Batch fetch failed, trying next batch:`, error);
+      }
+      
+      attemptIndex += batchSize;
+      
+      // Stop if we have enough
+      if (successfulFetches >= desiredFullFetches) {
+        break;
+      }
+    }
+    
+    console.log(`[DEBUG] Fetch complete: Got ${successfulFetches} of ${desiredFullFetches} desired full content docs`);
+    
+    // Update documents with full content
+    const updatedDocs = await Promise.all(docs.map(async (doc) => {
+      const fullContent = fullContentMap.get(doc.metadata.url);
+      if (fullContent) {
+        // Summarize if enabled
+        if (this.config.summarizer && fullContent.length > 2000) {
+          try {
+            const summary = await llm.invoke(`
+              You are a web content summarizer. Create a CONCISE summary of the following content.
+              Focus ONLY on information directly relevant to the query.
+              
+              IMPORTANT: Keep your summary to 2-3 sentences maximum (50-75 words).
+              Include only the most critical facts, data, and key points.
+              
+              <text>
+              ${fullContent.slice(0, 6000)}
+              </text>
+              
+              <query>
+              ${query}
+              </query>
+              
+              Concise summary (2-3 sentences):
+            `);
+            
+            return new Document({
+              pageContent: (summary.content as string) || fullContent.slice(0, 500),
+              metadata: { ...doc.metadata, hasFullContent: true }
+            });
+          } catch (err) {
+            console.warn('Error summarizing:', err);
+            return new Document({
+              pageContent: fullContent.slice(0, 500),
+              metadata: { ...doc.metadata, hasFullContent: true }
+            });
+          }
+        }
+        
+        return new Document({
+          pageContent: fullContent,
+          metadata: { ...doc.metadata, hasFullContent: true }
+        });
+      }
+      return doc;
+    }));
+    
+    console.log(`[DEBUG] Final: ${updatedDocs.filter(d => d.metadata.hasFullContent).length} with full content, ${updatedDocs.filter(d => !d.metadata.hasFullContent).length} with snippets`);
+    
+    return updatedDocs;
   }
 
   private async rerankDocs(

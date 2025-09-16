@@ -77,20 +77,12 @@ export const getDocumentsFromLinks = async ({ links }: { links: string[] }) => {
         });
 
         docs.push(...linkDocs);
-      } catch (err) {
-        console.error(
-          'An error occurred while getting documents from links: ',
-          err,
+      } catch (err: any) {
+        console.warn(
+          `Failed to fetch content from ${link}: ${err.message || err.code || 'Unknown error'}`,
         );
-        docs.push(
-          new Document({
-            pageContent: `Failed to retrieve content from the link: ${err}`,
-            metadata: {
-              title: 'Failed to retrieve content',
-              url: link,
-            },
-          }),
-        );
+        // Don't add failed documents - let the snippet fallback handle these
+        // This way we don't pollute the results with error messages
       }
     }),
   );
