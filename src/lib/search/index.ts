@@ -9,7 +9,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    summarizer: true,
     maxSources: 10,
   }),
   academicSearch: new MetaSearchAgent({
@@ -19,7 +18,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0,
     searchWeb: true,
-    summarizer: false,
     maxSources: 20,
   }),
   news: new MetaSearchAgent({
@@ -29,7 +27,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    summarizer: true,
     maxSources: 25,
   }),
   macroEconomy: new MetaSearchAgent({
@@ -39,7 +36,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    summarizer: true,
     maxSources: 20,
   }),
   fundamentals: new MetaSearchAgent({
@@ -49,7 +45,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    summarizer: false,
     maxSources: 15,
   }),
   social: new MetaSearchAgent({
@@ -59,7 +54,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.2,
     searchWeb: true,
-    summarizer: false,
     maxSources: 20,
   }),
   writingAssistant: new MetaSearchAgent({
@@ -69,7 +63,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0,
     searchWeb: false,
-    summarizer: false,
+    summarizer: false, // Explicitly disable for writing assistant since it doesn't search web
     maxSources: 5,
   }),
   wolframAlphaSearch: new MetaSearchAgent({
@@ -79,7 +73,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: false,
     rerankThreshold: 0,
     searchWeb: true,
-    summarizer: false,
     maxSources: 10,
   }),
   youtubeSearch: new MetaSearchAgent({
@@ -89,7 +82,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    summarizer: false,
     maxSources: 15,
   }),
   redditSearch: new MetaSearchAgent({
@@ -99,7 +91,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerank: true,
     rerankThreshold: 0.3,
     searchWeb: true,
-    summarizer: false,
     maxSources: 15,
   }),
 };

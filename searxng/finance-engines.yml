@@ -1,9 +1,9 @@
-# Finance-focused engine configuration for SearXNG
-# This file contains additional configurations to prioritize financial content
+# Finance and MacroEconomy-focused engine configuration for SearXNG
+# This file contains configurations to prioritize financial, economic, and geopolitical content
 
-# Priority financial domains to boost in search results
+# Priority domains to boost in search results for comprehensive macro analysis
 finance_domains:
-  tier1:  # Major financial news and data providers
+  tier1:  # Major financial and global news providers
     - reuters.com
     - bloomberg.com
     - wsj.com
@@ -12,6 +12,12 @@ finance_domains:
     - marketwatch.com
     - cnbc.com
     - barrons.com
+    - bbc.com
+    - cnn.com
+    - apnews.com
+    - economist.com
+    - businessinsider.com
+    - forbes.com
     
   tier2:  # Analysis and research platforms
     - seekingalpha.com
@@ -22,12 +28,21 @@ finance_domains:
     - tipranks.com
     - benzinga.com
     
-  tier3:  # Government and regulatory
+  tier3:  # Government, regulatory and central banks
     - sec.gov
     - federalreserve.gov
     - treasury.gov
     - cftc.gov
     - finra.org
+    - whitehouse.gov
+    - state.gov
+    - ecb.europa.eu
+    - bankofengland.co.uk
+    - boj.or.jp
+    - imf.org
+    - worldbank.org
+    - bis.org
+    - oecd.org
     
   tier4:  # Cryptocurrency and fintech
     - coindesk.com
@@ -35,14 +50,36 @@ finance_domains:
     - coinbase.com
     - cryptocompare.com
     
-  tier5:  # Social finance sentiment
+  tier5:  # International and geopolitical news
+    - aljazeera.com
+    - dw.com
+    - france24.com
+    - theguardian.com
+    - nytimes.com
+    - washingtonpost.com
+    - politico.com
+    - foreignaffairs.com
+    - cfr.org
+    
+  tier6:  # IPO, M&A and tech business news
+    - techcrunch.com
+    - venturebeat.com
+    - pitchbook.com
+    - crunchbase.com
+    - dealbook.nytimes.com
+    - mergersandinquisitions.com
+    
+  tier7:  # Social finance sentiment
     - reddit.com/r/wallstreetbets
     - reddit.com/r/investing
     - reddit.com/r/stocks
     - reddit.com/r/SecurityAnalysis
+    - reddit.com/r/worldnews
+    - reddit.com/r/geopolitics
     - stocktwits.com
+    - twitter.com
 
-# Search query enhancements for financial terms
+# Search query enhancements for macro economy analysis
 query_enhancements:
   stock_tickers:
     - "stock price"
@@ -55,6 +92,7 @@ query_enhancements:
     - "technical analysis"
     - "fundamental analysis"
     - "market sentiment"
+    - "market impact"
     
   economic_data:
     - "economic indicators"
@@ -62,13 +100,48 @@ query_enhancements:
     - "inflation"
     - "interest rates"
     - "fed policy"
+    - "central bank"
+    - "monetary policy"
+    - "fiscal policy"
+    
+  geopolitical_events:
+    - "breaking news"
+    - "international crisis"
+    - "sanctions"
+    - "trade war"
+    - "military conflict"
+    - "political crisis"
+    - "election impact"
+    
+  corporate_events:
+    - "IPO"
+    - "merger acquisition"
+    - "M&A"
+    - "bankruptcy"
+    - "layoffs"
+    - "earnings surprise"
+    
+  wealth_tracking:
+    - "billionaire"
+    - "richest person"
+    - "wealth ranking"
+    - "Forbes list"
+    - "net worth"
 
-# Preferred search result types for finance
+# Preferred search result types for macro economy analysis
 preferred_content_types:
+  - breaking_news
+  - economic_data
+  - central_bank_statements
+  - market_news
   - earnings_reports
   - sec_filings
   - analyst_reports
-  - market_news
-  - economic_data
+  - ipo_announcements
+  - ma_deals
+  - geopolitical_analysis
+  - government_announcements
+  - crisis_updates
+  - billionaire_rankings
   - price_charts
   - financial_ratios

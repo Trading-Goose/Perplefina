@@ -44,7 +44,7 @@ export interface MetaSearchAgentType {
 interface Config {
   searchWeb: boolean;
   rerank: boolean;
-  summarizer: boolean;
+  summarizer?: boolean; // Made optional - defaults to true globally
   rerankThreshold: number;
   queryGeneratorPrompt: string;
   responsePrompt: string;
@@ -62,7 +62,11 @@ class MetaSearchAgent implements MetaSearchAgentType {
   private strParser = new StringOutputParser();
 
   constructor(config: Config) {
-    this.config = config;
+    // Enable summarization by default globally
+    this.config = {
+      ...config,
+      summarizer: config.summarizer !== undefined ? config.summarizer : true
+    };
   }
 
 
@@ -237,30 +241,111 @@ class MetaSearchAgent implements MetaSearchAgentType {
             engines: filteredEngines,
           });
 
-          const documents = res.results
-            .filter((result) => {
-              // Filter out YouTube results in speed/balanced modes unless explicitly included
-              if ((optimizationMode === 'balanced' || optimizationMode === 'speed') && includeVideos !== true &&
-                  (result.url.includes('youtube.com') || result.url.includes('youtu.be'))) {
-                return false;
+          // Filter out unwanted results
+          const filteredResults = res.results.filter((result) => {
+            // Filter out YouTube results in speed/balanced modes unless explicitly included
+            if ((optimizationMode === 'balanced' || optimizationMode === 'speed') && includeVideos !== true &&
+                (result.url.includes('youtube.com') || result.url.includes('youtu.be'))) {
+              return false;
+            }
+            return true;
+          });
+
+          // Determine how many full pages to fetch based on optimization mode
+          const maxFullFetches = optimizationMode === 'speed' ? 3 : 
+                                 optimizationMode === 'balanced' ? 5 : 8;
+          
+          // Get URLs to fetch full content from (top N results)
+          const urlsToFetch = filteredResults
+            .slice(0, Math.min(maxFullFetches, filteredResults.length))
+            .map(r => r.url);
+
+          let fullContentDocs: Document[] = [];
+          
+          // Fetch full content if we have URLs
+          if (urlsToFetch.length > 0) {
+            try {
+              const { getDocumentsFromLinks } = await import('../utils/documents');
+              const fetchedDocs = await getDocumentsFromLinks({ links: urlsToFetch });
+              
+              // Group documents by URL and combine content
+              const docGroups: Map<string, Document> = new Map();
+              
+              fetchedDocs.forEach(doc => {
+                const url = doc.metadata.url;
+                if (docGroups.has(url)) {
+                  const existing = docGroups.get(url)!;
+                  existing.pageContent += '\n\n' + doc.pageContent;
+                } else {
+                  docGroups.set(url, {
+                    ...doc,
+                    metadata: {
+                      ...doc.metadata,
+                      title: filteredResults.find(r => r.url === url)?.title || doc.metadata.title,
+                    }
+                  });
+                }
+              });
+              
+              // Summarize long documents if summarizer is enabled
+              if (this.config.summarizer) {
+                const summarizedDocs = await Promise.all(
+                  Array.from(docGroups.values()).map(async (doc) => {
+                    // Only summarize if content is longer than 2000 characters
+                    if (doc.pageContent.length > 2000) {
+                      try {
+                        const summary = await llm.invoke(`
+                          You are a web content summarizer. Summarize the following content into a detailed, comprehensive explanation that captures all key information.
+                          Focus on facts, data, and important details. Maintain a professional tone.
+                          
+                          <text>
+                          ${doc.pageContent.slice(0, 8000)} 
+                          </text>
+                          
+                          <query>
+                          ${question}
+                          </query>
+                          
+                          Provide a detailed summary that answers the query while preserving all important information:
+                        `);
+                        
+                        return new Document({
+                          pageContent: summary.content as string,
+                          metadata: doc.metadata
+                        });
+                      } catch (err) {
+                        console.warn('Error summarizing document:', err);
+                        return doc; // Return original if summarization fails
+                      }
+                    }
+                    return doc;
+                  })
+                );
+                fullContentDocs = summarizedDocs;
+              } else {
+                fullContentDocs = Array.from(docGroups.values());
               }
-              return true;
-            })
-            .map(
-              (result) =>
-                new Document({
-                  pageContent:
-                    result.content ||
-                    (filteredEngines.includes('youtube')
-                      ? result.title
-                      : '') /* Todo: Implement transcript grabbing using Youtubei (source: https://www.npmjs.com/package/youtubei) */,
-                  metadata: {
-                    title: result.title,
-                    url: result.url,
-                    ...(result.img_src && (optimizationMode === 'quality' || includeImages === true) && { img_src: result.img_src }),
-                  },
-                }),
+            } catch (error) {
+              console.warn('Error fetching full content, falling back to snippets:', error);
+            }
+          }
+
+          // For remaining results (or if fetching failed), use snippets
+          const snippetDocs = filteredResults
+            .slice(fullContentDocs.length)
+            .map(result =>
+              new Document({
+                pageContent: result.content || result.title || '',
+                metadata: {
+                  title: result.title,
+                  url: result.url,
+                  ...(result.img_src && (optimizationMode === 'quality' || includeImages === true) && { img_src: result.img_src }),
+                },
+              })
             );
+
+          // Combine full content docs with snippet docs
+          const documents = [...fullContentDocs, ...snippetDocs];
 
           return { query: question, docs: documents };
         }
