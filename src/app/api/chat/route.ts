@@ -53,45 +53,75 @@ const handleEmitterEvents = async (
 ) => {
   let recievedMessage = '';
   let sources: any[] = [];
+  let writerClosed = false;
 
   stream.on('data', (data) => {
-    const parsedData = JSON.parse(data);
-    if (parsedData.type === 'response') {
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'message',
-            data: parsedData.data,
-            messageId: aiMessageId,
-          }) + '\n',
-        ),
-      );
+    if (writerClosed) return;
+    
+    try {
+      const parsedData = JSON.parse(data);
+      if (parsedData.type === 'response') {
+        writer.write(
+          encoder.encode(
+            JSON.stringify({
+              type: 'message',
+              data: parsedData.data,
+              messageId: aiMessageId,
+            }) + '\n',
+          ),
+        ).catch(() => {
+          // Writer already closed by client disconnect
+          writerClosed = true;
+        });
 
-      recievedMessage += parsedData.data;
-    } else if (parsedData.type === 'sources') {
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'sources',
-            data: parsedData.data,
-            messageId: aiMessageId,
-          }) + '\n',
-        ),
-      );
+        recievedMessage += parsedData.data;
+      } else if (parsedData.type === 'sources') {
+        writer.write(
+          encoder.encode(
+            JSON.stringify({
+              type: 'sources',
+              data: parsedData.data,
+              messageId: aiMessageId,
+            }) + '\n',
+          ),
+        ).catch(() => {
+          // Writer already closed by client disconnect
+          writerClosed = true;
+        });
 
-      sources = parsedData.data;
+        sources = parsedData.data;
+      }
+    } catch (error) {
+      console.error('Error processing stream data:', error);
     }
   });
+  
   stream.on('end', () => {
-    writer.write(
-      encoder.encode(
-        JSON.stringify({
-          type: 'messageEnd',
-          messageId: aiMessageId,
-        }) + '\n',
-      ),
-    );
-    writer.close();
+    if (!writerClosed) {
+      try {
+        writer.write(
+          encoder.encode(
+            JSON.stringify({
+              type: 'messageEnd',
+              messageId: aiMessageId,
+            }) + '\n',
+          ),
+        ).then(() => {
+          if (!writerClosed) {
+            writer.close().catch(() => {
+              // Already closed
+            });
+            writerClosed = true;
+          }
+        }).catch(() => {
+          // Writer already closed
+          writerClosed = true;
+        });
+      } catch (error) {
+        // Writer already closed
+        writerClosed = true;
+      }
+    }
 
     db.insert(messagesSchema)
       .values({
@@ -107,16 +137,32 @@ const handleEmitterEvents = async (
       .execute();
   });
   stream.on('error', (data) => {
-    const parsedData = JSON.parse(data);
-    writer.write(
-      encoder.encode(
-        JSON.stringify({
-          type: 'error',
-          data: parsedData.data,
-        }),
-      ),
-    );
-    writer.close();
+    if (!writerClosed) {
+      try {
+        const parsedData = JSON.parse(data);
+        writer.write(
+          encoder.encode(
+            JSON.stringify({
+              type: 'error',
+              data: parsedData.data,
+            }),
+          ),
+        ).then(() => {
+          if (!writerClosed) {
+            writer.close().catch(() => {
+              // Already closed
+            });
+            writerClosed = true;
+          }
+        }).catch(() => {
+          // Writer already closed
+          writerClosed = true;
+        });
+      } catch (error) {
+        console.error('Error handling stream error:', error);
+        writerClosed = true;
+      }
+    }
   });
 };
 

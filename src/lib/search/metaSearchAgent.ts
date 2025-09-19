@@ -256,7 +256,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
           const filteredResults = res.results.filter((result) => {
             // Filter out YouTube results in speed/balanced modes unless explicitly included
             if ((optimizationMode === 'balanced' || optimizationMode === 'speed') && includeVideos !== true &&
-                (result.url.includes('youtube.com') || result.url.includes('youtu.be'))) {
+              (result.url.includes('youtube.com') || result.url.includes('youtu.be'))) {
               return false;
             }
             return true;
@@ -275,7 +275,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
               },
             })
           );
-          
+
           console.log(`[DEBUG] Created ${documents.length} snippet documents for reranking`);
 
           return { query: question, docs: documents };
@@ -370,62 +370,105 @@ class MetaSearchAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     maxSources: number
   ): Promise<Document[]> {
-    // Determine how many to fetch based on optimization mode
+    // Determine how many to fetch based on optimization mode and actual selected docs
     const fetchPercentage = optimizationMode === 'speed' ? 0.2 :
-                           optimizationMode === 'balanced' ? 0.5 :
-                           1.0;
-    const desiredFullFetches = Math.max(1, Math.ceil(maxSources * fetchPercentage));
-    
+      optimizationMode === 'balanced' ? 0.2 :
+        0.5; // quality mode now fetches 50%
+    // Use the actual number of selected docs, not maxSources
+    const desiredFullFetches = Math.max(1, Math.ceil(docs.length * fetchPercentage));
+
     console.log(`[DEBUG] Post-rerank fetch: Will try to fetch full content for ${desiredFullFetches} of ${docs.length} selected docs`);
-    
+
     // Get all docs that could be fetched
     const candidateDocs = docs.filter(doc => doc.metadata.needsFullContent);
-    
+
     if (candidateDocs.length === 0) {
       return docs;
     }
-    
+
     // Fetch with retry mechanism - keep trying until we get desired number or run out
     const fullContentMap = new Map<string, string>();
-    let successfulFetches = 0;
-    let attemptIndex = 0;
-    
+    const successfulUrls = new Set<string>();
+    const attemptedUrls = new Set<string>();
+
     const { getDocumentsFromLinks } = await import('../utils/documents');
-    
-    while (successfulFetches < desiredFullFetches && attemptIndex < candidateDocs.length) {
-      const batchSize = Math.min(3, candidateDocs.length - attemptIndex); // Try 3 at a time
-      const batchDocs = candidateDocs.slice(attemptIndex, attemptIndex + batchSize);
-      const batchUrls = batchDocs.map(doc => doc.metadata.url);
-      
-      console.log(`[DEBUG] Attempting to fetch URLs ${attemptIndex + 1}-${attemptIndex + batchSize} (need ${desiredFullFetches - successfulFetches} more)`);
-      
-      try {
-        const fetchedDocs = await getDocumentsFromLinks({ links: batchUrls });
-        
-        // Group by URL
-        fetchedDocs.forEach(doc => {
-          if (!fullContentMap.has(doc.metadata.url)) {
-            successfulFetches++;
-          }
-          const existing = fullContentMap.get(doc.metadata.url) || '';
-          fullContentMap.set(doc.metadata.url, existing + '\n\n' + doc.pageContent);
-        });
-        
-        console.log(`[DEBUG] Successfully fetched ${fetchedDocs.length} chunks, ${successfulFetches} unique URLs so far`);
-      } catch (error) {
-        console.warn(`[DEBUG] Batch fetch failed, trying next batch:`, error);
+
+    const dedupedCandidates: Document[] = [];
+    const seenUrls = new Set<string>();
+    for (const doc of candidateDocs) {
+      const url = doc.metadata.url;
+      if (!url || seenUrls.has(url)) {
+        continue;
       }
-      
-      attemptIndex += batchSize;
-      
-      // Stop if we have enough
-      if (successfulFetches >= desiredFullFetches) {
+      seenUrls.add(url);
+      dedupedCandidates.push(doc);
+    }
+
+    if (dedupedCandidates.length === 0) {
+      return docs;
+    }
+
+    const initialBatchSize = Math.min(desiredFullFetches, dedupedCandidates.length);
+    let nextIndex = initialBatchSize;
+    let activeDocs = dedupedCandidates.slice(0, initialBatchSize);
+
+    while (activeDocs.length > 0 && successfulUrls.size < desiredFullFetches) {
+      const batchUrls = activeDocs
+        .map(doc => doc.metadata.url)
+        .filter((url): url is string => !!url && !attemptedUrls.has(url));
+
+      batchUrls.forEach(url => attemptedUrls.add(url));
+
+      const needed = desiredFullFetches - successfulUrls.size;
+      console.log(`[DEBUG] Attempting to fetch ${batchUrls.length} URLs (need ${needed} more)`);
+
+      if (batchUrls.length === 0) {
         break;
       }
+
+      const fetchedDocs = await getDocumentsFromLinks({ links: batchUrls });
+
+      const newlySuccessful = new Set<string>();
+
+      fetchedDocs.forEach(doc => {
+        const url = doc.metadata.url;
+        const existing = fullContentMap.get(url);
+        fullContentMap.set(url, existing ? `${existing}\n\n${doc.pageContent}` : doc.pageContent);
+
+        if (!successfulUrls.has(url)) {
+          newlySuccessful.add(url);
+        }
+      });
+
+      newlySuccessful.forEach(url => successfulUrls.add(url));
+
+      console.log(`[DEBUG] Successfully fetched ${successfulUrls.size} unique URLs so far`);
+
+      if (successfulUrls.size >= desiredFullFetches) {
+        break;
+      }
+
+      const remainingNeeded = desiredFullFetches - successfulUrls.size;
+      const nextBatch: Document[] = [];
+
+      while (nextBatch.length < remainingNeeded && nextIndex < dedupedCandidates.length) {
+        const candidate = dedupedCandidates[nextIndex++];
+        const candidateUrl = candidate.metadata.url;
+        if (!candidateUrl || attemptedUrls.has(candidateUrl)) {
+          continue;
+        }
+        nextBatch.push(candidate);
+      }
+
+      activeDocs = nextBatch;
+
+      if (activeDocs.length === 0 && successfulUrls.size < desiredFullFetches) {
+        console.log('[DEBUG] No additional documents available for fetching full content');
+      }
     }
-    
-    console.log(`[DEBUG] Fetch complete: Got ${successfulFetches} of ${desiredFullFetches} desired full content docs`);
-    
+
+    console.log(`[DEBUG] Fetch complete: Got ${successfulUrls.size} of ${desiredFullFetches} desired full content docs`);
+
     // Update documents with full content
     const updatedDocs = await Promise.all(docs.map(async (doc) => {
       const fullContent = fullContentMap.get(doc.metadata.url);
@@ -450,7 +493,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
               
               Concise summary (2-3 sentences):
             `);
-            
+
             return new Document({
               pageContent: (summary.content as string) || fullContent.slice(0, 500),
               metadata: { ...doc.metadata, hasFullContent: true }
@@ -463,7 +506,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
             });
           }
         }
-        
+
         return new Document({
           pageContent: fullContent,
           metadata: { ...doc.metadata, hasFullContent: true }
@@ -471,9 +514,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
       }
       return doc;
     }));
-    
+
     console.log(`[DEBUG] Final: ${updatedDocs.filter(d => d.metadata.hasFullContent).length} with full content, ${updatedDocs.filter(d => !d.metadata.hasFullContent).length} with snippets`);
-    
+
     return updatedDocs;
   }
 
@@ -569,7 +612,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       } else {
         return docsWithContent.slice(0, sourcesLimit);
       }
-    } else if (optimizationMode === 'balanced') {
+    } else if (optimizationMode === 'balanced' || optimizationMode === 'quality') {
       // If there are no documents to rerank and no files, return empty array
       if (docsWithContent.length === 0 && filesData.length === 0) {
         return [];
@@ -617,7 +660,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       const sortedDocs = similarity
         .filter((sim) => sim.similarity > (this.config.rerankThreshold ?? 0.3))
         .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, this.config.maxSources || 15)
+        .slice(0, sourcesLimit)
         .map((sim) => docsWithContent[sim.index]);
 
       return sortedDocs;

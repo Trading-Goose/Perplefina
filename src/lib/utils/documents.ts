@@ -4,7 +4,15 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { Document } from '@langchain/core/documents';
 import pdfParse from 'pdf-parse';
 
-export const getDocumentsFromLinks = async ({ links }: { links: string[] }) => {
+const DEFAULT_FETCH_TIMEOUT_MS = 15000;
+
+export const getDocumentsFromLinks = async ({
+  links,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+}: {
+  links: string[];
+  timeoutMs?: number;
+}) => {
   const splitter = new RecursiveCharacterTextSplitter();
 
   let docs: Document[] = [];
@@ -19,6 +27,7 @@ export const getDocumentsFromLinks = async ({ links }: { links: string[] }) => {
       try {
         const res = await axios.get(link, {
           responseType: 'arraybuffer',
+          timeout: timeoutMs,
         });
 
         const isPdf = res.headers['content-type'] === 'application/pdf';
